@@ -2,16 +2,16 @@ import streamlit as st
 import json
 import os
 
-LEADERBOARD_FILE = "centrifuge_leaderboard.json"
+LEADERBOARD_FILE = "centrifuge_arcade_scores.json"
 
 st.set_page_config(
-    page_title="Centrifuge Chess: Overclocked",
+    page_title="Centrifuge Overclocked",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# --- BACKEND LEADERBOARD SYNCHRONIZATION ---
-def load_scores():
+# --- LEADERBOARD DATA UTILITY ---
+def get_scores():
     if os.path.exists(LEADERBOARD_FILE):
         try:
             with open(LEADERBOARD_FILE, "r") as f:
@@ -20,11 +20,10 @@ def load_scores():
             return []
     return []
 
-# Handle new score submissions from the game engine
 if "submit_score" in st.query_params:
-    name = st.query_params.get("name", "ANON")
+    name = st.query_params.get("name", "AAA")
     score = int(st.query_params.get("score", 0))
-    scores = load_scores()
+    scores = get_scores()
     scores.append({"name": name[:3].upper(), "score": score})
     scores = sorted(scores, key=lambda x: x['score'], reverse=True)[:5]
     with open(LEADERBOARD_FILE, "w") as f:
@@ -32,291 +31,625 @@ if "submit_score" in st.query_params:
     st.query_params.clear()
     st.rerun()
 
-# --- HIGH-TECH UI WRAPPER ---
-st.markdown("""
-    <style>
-    body { background-color: #05070a; color: #e2e8f0; font-family: 'Courier New', monospace; }
-    .title-container { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
-    .glitch-title { font-size: 2.5rem; font-weight: 900; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,220,0.5); }
-    .leaderboard-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-    .lb-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e293b; font-size: 1.1rem; }
-    .lb-rank { color: #ff3366; font-weight: bold; }
-    .lb-name { color: #fff; }
-    .lb-score { color: #00ffcc; font-family: monospace; }
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("""
-<div class="title-container">
-    <span class="glitch-title">☢️ CENTRIFUGE CHESS: OVERCLOCK)</span>
-    <p style="color: #64748b; margin-top: 5px;">Maintain angular velocity. Manipulate torque. Do not rupture the core.</p>
-</div>
-""", unsafe_allow_html=True)
-
-col_game, col_sidebar = st.columns([2, 1])
-
-with col_sidebar:
-    st.markdown("<div class='leaderboard-card'>", unsafe_allow_html=True)
-    st.subheader("🏆 ARCHIVED TOP OPERATORS")
-    top_scores = load_scores()
-    if top_scores:
-        for idx, entry in enumerate(top_scores):
-            st.markdown(f"""
-            <div class='lb-row'>
-                <span><span class='lb-rank'>#{idx+1}</span> <span class='lb-name'>{entry['name']}</span></span>
-                <span class='lb-score'>{entry['score']} Cycles</span>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.write("No telemetry recorded. Set the laboratory baseline.")
-    st.markdown("</div>", unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("🔬 PROTOCOL MANUAL (HOW TO PLAY)"):
-        st.markdown("""
-        * **Objective:** Balance the 24-hole structural rotor array. 
-        * **Controls:** Click a test tube to extract it. Click an empty node to secure it.
-        * **Vector Mechanics:** Every move modifies the center of mass. Keep the glowing reticle out of the outer **Red Boundary**.
-        * **Symmetry Victory:** Bring the center of mass to absolute zero ($0.00$) to secure instant containment success.
-        * **Checkmate:** Force your opponent into a configuration where every single move they can make causes a catastrophic rupture.
-        """)
-
-# --- EMULATION SIMULATOR ENGINE (HTML5/JS Canvas/CSS3) ---
+# --- THE ARCADE VIEWPORT EMBED ---
 game_html = """
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
+    <title>Centrifuge Chess Engine</title>
     <style>
-        body { background: #05070a; color: #fff; font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
-        #canvas-container { position: relative; width: 600px; height: 600px; display: flex; justify-content: center; align-items: center; }
-        
-        /* THE CENTRIFUGE STRUCTURE */
-        .centrifuge-body { position: absolute; width: 560px; height: 560px; border-radius: 50%; background: radial-gradient(circle, #1a202c 40%, #0f1319 70%, #2d3748 100%); border: 8px solid #4a5568; box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
-        .rotor-plate { position: absolute; width: 440px; height: 440px; border-radius: 50%; background: radial-gradient(circle, #11141a 50%, #1a202c 100%); border: 4px solid #2d3748; box-shadow: inset 0 0 20px #000; }
-        
-        /* HEAVY HYDRAULIC MECHANICAL LID */
-        .centrifuge-lid { position: absolute; width: 576px; height: 576px; border-radius: 50%; background: radial-gradient(circle, #4a5568 20%, #2d3748 60%, #1a202c 100%); border: 4px solid #718096; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 1.2s cubic-bezier(0.77, 0, 0.175, 1); }
-        .lid-glass { width: 180px; height: 180px; border-radius: 50%; background: rgba(0, 255, 200, 0.05); border: 6px solid #1a202c; box-shadow: inset 0 0 20px rgba(0,255,220,0.2); display: flex; justify-content: center; align-items: center; color: #00ffcc; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 8px #00ffcc; }
-        .start-btn { margin-top: 30px; padding: 12px 32px; background: #ff3366; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; font-size: 1.1rem; box-shadow: 0 0 15px rgba(255,51,102,0.4); transition: 0.2s; }
-        .start-btn:hover { background: #ff5588; transform: scale(1.05); }
-        
-        /* OPEN STATE ANIMATION */
-        .lid-open { transform: translateY(-700px) scale(0.9); opacity: 0; pointer-events: none; }
-        
-        /* PHYSICAL SLOTS AND GLASS TUBES */
-        .slot { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: #090d13; border: 2px solid #2d3748; transform: translate(-50%, -50%); cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8); transition: 0.2s; }
-        .slot:hover { border-color: #718096; background: #151b26; }
-        .slot-lbl { position: absolute; color: #4a5568; font-size: 9px; font-family: monospace; font-weight: bold; pointer-events: none; }
-        
-        /* DETAILED TEST TUBE GRAPHICS */
-        .test-tube { position: absolute; width: 20px; height: 34px; border-radius: 4px 4px 10px 10px; background: linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,0.4) 100%); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 8px rgba(0,0,0,0.5); pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .tube-cap { position: absolute; top: 0; width: 100%; height: 8px; border-radius: 3px 3px 0 0; }
-        .tube-liquid { width: 100%; height: 70%; border-radius: 0 0 8px 8px; }
-        
-        /* PLAYER COLOUR GRADIENTS */
-        .p1-gradient { background: linear-gradient(180deg, #ff3366 #cc0044); box-shadow: 0 0 12px rgba(255,51,102,0.6); }
-        .p1-cap { background: #ff88a8; border-bottom: 1px solid #cc0044; }
-        .p2-gradient { background: linear-gradient(180deg, #00ccff, #0066cc); box-shadow: 0 0 12px rgba(0,204,255,0.6); }
-        .p2-cap { background: #88e5ff; border-bottom: 1px solid #0066cc; }
-        
-        /* TACTILE STATES */
-        .slot.selected { border-color: #00ffcc !important; box-shadow: 0 0 15px #00ffcc; }
-        .slot.selected .test-tube { transform: scale(1.3) translateY(-5px); z-index: 5; }
-        
-        /* HUD INTERFACE LAYER */
-        .hud-shroud { position: absolute; top: -50px; width: 100%; display: flex; justify-content: space-between; font-family: monospace; font-size: 13px; color: #a0aec0; }
-        .hud-metric { background: #0f172a; padding: 6px 12px; border-radius: 4px; border: 1px solid #1e293b; }
-        
-        /* VECHTOR TARGET RETICLE */
-        .center-axis { position: absolute; width: 100px; height: 100px; border: 1px dashed rgba(255,255,255,0.15); border-radius: 50%; pointer-events: none; }
-        .danger-ring { position: absolute; width: 80px; height: 80px; border: 2px dashed rgba(255, 51, 102, 0.3); border-radius: 50%; pointer-events: none; }
-        .vector-dot { position: absolute; width: 10px; height: 10px; background: #00ffcc; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #00ffcc; transform: translate(-50%, -50%); transition: all 0.4s ease-out; }
-        
-        /* HUD SYSTEM MODALS */
-        .screen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,7,10,0.9); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 12px; display: none; }
-        .modal-title { font-size: 2rem; font-weight: bold; color: #ff3366; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,51,102,0.5); }
-        .score-input { background: #1a202c; border: 2px solid #2d3748; color: #fff; padding: 10px; font-size: 1.2rem; border-radius: 6px; width: 120px; text-align: center; text-transform: uppercase; margin-bottom: 15px; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #030508; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        canvas { background: #060913; box-shadow: 0 0 50px rgba(0, 255, 204, 0.15); border-radius: 4px; max-width: 100%; max-height: 100%; cursor: default; }
     </style>
 </head>
 <body>
 
-<div id="canvas-container">
-    <div class="hud-shroud">
-        <div class="hud-metric" id="turn-display">SYSTEM STATUS: LOADING...</div>
-        <div class="hud-metric" id="weight-display">IMBALANCE: 0.00 / 2.00</div>
-    </div>
-
-    <div class="centrifuge-body" id="chassis">
-        <div class="rotor-plate" id="rotor"></div>
-        
-        <div class="center-axis"></div>
-        <div class="danger-ring"></div>
-        <div id="reticle" class="vector-dot" style="left: 50%; top: 50%;"></div>
-    </div>
-
-    <div class="centrifuge-lid" id="lid">
-        <div class="lid-glass">CORE SEALED</div>
-        <button class="start-btn" onclick="openCentrifuge()">INITIALIZE LAUNCH</button>
-    </div>
-
-    <div class="screen-overlay" id="end-screen">
-        <div class="modal-title" id="end-title">SYSTEM FAILURE</div>
-        <p id="end-subtitle" style="color: #a0aec0; margin-bottom: 25px;">Core integrity ruptured.</p>
-        <div id="score-section" style="display:none; text-align:center;">
-             <input type="text" id="initials" class="score-input" placeholder="XYZ" maxlength="3">
-             <br>
-             <button class="start-btn" style="margin-top:5px;" onclick="commitScoreData()">ARCHIVE TELEMETRY</button>
-        </div>
-        <button class="start-btn" id="restart-btn" style="background:#4a5568; box-shadow:none; display:none;" onclick="location.reload()">RECALIBRATE CORE</button>
-    </div>
-</div>
+<canvas id="gameCanvas" width="1000" height="700"></canvas>
 
 <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // GAME STATES
+    const STATE_HOME = 0;
+    const STATE_LAUNCH = 1;
+    const STATE_GAME = 2;
+    const STATE_EXPLOSION = 3;
+    const STATE_GAMEOVER = 4;
+    let gameState = STATE_HOME;
+
+    // PHYSICAL CONSTANTS
     const HOLES = 24;
-    const MAX_IMBALANCE = 2.0;
-    const RADIUS = 185; // Rotor placement radius
-    
+    const MAX_IMBALANCE = 2.2;
+    const ROTOR_RADIUS = 150;
+    const CENTRIFUGE_CENTER = { x: 500, y: 350 };
+
+    // SYSTEM GAMEPLAY variables
     let board = {};
+    let gameMode = "1v1"; // "1v1" or "AI"
+    let currentTurn = 1;  // 1 = Coral, 2 = Electric Blue
     let selectedSlot = null;
-    let currentTurn = 1; 
-    let gameMode = "1v1";
-    let gameActive = true;
-    let survivalMoves = 0;
+    let hoverSlot = null;
+    let scoreCycles = 0;
+    
+    // ANIMATION CONTROL METRICS
+    let lidOffset = 0;       // Max 1.0 (Fully Open)
+    let launchTimer = 0;
+    let screenShake = { x: 0, y: 0, intensity: 0 };
+    let particles = [];
+    let stateTimer = 0;
+    let playerInitials = "";
 
-    // Detect initialization parameters from Streamlit environment
-    const parentParams = new URLSearchParams(window.parent.location.search);
-    gameMode = window.parent.document.querySelector("input[name='Select Operational Protocol:']:checked")?.value.includes("AI") ? "AI" : "1v1";
+    // DECORATIVE LABORATORY BACKDROP ASSETS
+    let bubbleBeakers = [
+        { x: 120, y: 580, r: 40, h: 90, color: 'rgba(0, 255, 204, 0.4)', liquid: 0.7, bubbles: [] },
+        { x: 210, y: 600, r: 25, h: 60, color: 'rgba(255, 51, 102, 0.4)', liquid: 0.5, bubbles: [] },
+        { x: 840, y: 570, r: 50, h: 110, color: 'rgba(0, 204, 255, 0.4)', liquid: 0.8, bubbles: [] }
+    ];
 
-    // Initialize physical rotor configuration grid mapping
-    const rotor = document.getElementById('rotor');
-    for (let i = 0; i < HOLES; i++) {
-        const angle = (i * (360 / HOLES)) * (Math.PI / 180);
-        const x = 220 + RADIUS * Math.cos(angle);
-        const y = 220 + RADIUS * Math.sin(angle);
-        
-        const slot = document.createElement('div');
-        slot.className = 'slot';
-        slot.style.left = `${x}px`;
-        slot.style.top = `${y}px`;
-        slot.setAttribute('data-index', i);
-        slot.onclick = () => handleSlotClick(i);
-        
-        const label = document.createElement('div');
-        label.className = 'slot-lbl';
-        label.innerText = i;
-        label.style.left = `${220 + (RADIUS + 24) * Math.cos(angle)}px`;
-        label.style.top = `${220 + (RADIUS + 24) * Math.sin(angle)}px`;
-        
-        rotor.appendChild(slot);
-        document.getElementById('chassis').appendChild(label);
-        board[i] = 0;
+    // BOOTSTRAP RUN
+    initRotorDatabase();
+    animateEngine(0);
+
+    function initRotorDatabase() {
+        for (let i = 0; i < HOLES; i++) board[i] = 0;
     }
 
-    // High Symmetry baseline loading array profiles
-    const p1Starting = [0, 4, 8, 12, 16, 20];
-    const p2Starting = [2, 6, 10, 14, 18, 22];
-
-    p1Starting.forEach(pos => board[pos] = 1);
-    p2Starting.forEach(pos => board[pos] = 2);
-
-    function updateRotorVisuals() {
-        document.querySelectorAll('.slot').forEach(slot => {
-            const idx = slot.getAttribute('data-index');
-            slot.innerHTML = '';
-            if (board[idx] !== 0) {
-                const tube = document.createElement('div');
-                tube.className = 'test-tube';
-                
-                const cap = document.createElement('div');
-                cap.className = `tube-cap ${board[idx] === 1 ? 'p1-cap' : 'p2-cap'}`;
-                
-                const liquid = document.createElement('div');
-                liquid.className = `tube-liquid ${board[idx] === 1 ? 'p1-gradient' : 'p2-gradient'}`;
-                
-                tube.appendChild(cap);
-                tube.appendChild(liquid);
-                slot.appendChild(tube);
-            }
-        });
-
-        const physics = calculatePhysics(board);
-        document.getElementById('weight-display').innerText = `IMBALANCE: ${physics.mag.toFixed(3)} / ${MAX_IMBALANCE.toFixed(1)}`;
+    // GENERATE A RANDOM, SAFE INITIAL ARRAY SYMMETRY
+    function generateRandomArray() {
+        initRotorDatabase();
+        let placed = 0;
         
-        // Map center of mass displacement vector natively to pixel coordinates
-        const reticleX = 50 + (physics.x * 20); 
-        const reticleY = 50 + (physics.y * 20);
-        const reticle = document.getElementById('reticle');
-        reticle.style.left = `${reticleX}%`;
-        reticle.style.top = `${reticleY}%`;
-
-        if (physics.mag > (MAX_IMBALANCE * 0.75)) {
-            document.getElementById('chassis').style.transform = `translate(${(Math.random()-0.5)*4}px, ${(Math.random()-0.5)*4}px)`;
-            reticle.style.background = '#ff3366';
-        } else {
-            document.getElementById('chassis').style.transform = 'none';
-            reticle.style.background = '#00ffcc';
+        // Distribute Coral tubes
+        while(placed < 6) {
+            let r = Math.floor(Math.random() * HOLES);
+            if (board[r] === 0) {
+                board[r] = 1;
+                placed++;
+            }
+        }
+        // Distribute Electric Blue tubes
+        placed = 0;
+        while(placed < 6) {
+            let r = Math.floor(Math.random() * HOLES);
+            if (board[r] === 0) {
+                board[r] = 2;
+                placed++;
+            }
         }
 
-        document.getElementById('turn-display').innerText = `OPERATOR SHIFT: PLAYER ${currentTurn === 1 ? '1 (CORAL)' : '2 (BLUE)'}`;
+        // Safety verification check: filter out extreme arrays or instant wins
+        let p = calculatePhysics(board);
+        if (p.mag > 1.4 || p.mag < 0.1 || getValidMoves(board, 1).length === 0 || getValidMoves(board, 2).length === 0) {
+            generateRandomArray();
+        }
     }
 
-    function openCentrifuge() {
-        document.getElementById('lid').classList.add('lid-open');
-        setTimeout(() => {
-            updateRotorVisuals();
-        }, 600);
+    // THE CORE ENGINE RENDER LOOP
+    let lastTime = 0;
+    function animateEngine(timestamp) {
+        let dt = (timestamp - lastTime) / 1000;
+        if (!dt || dt > 0.1) dt = 0.1;
+        lastTime = timestamp;
+
+        updateVisualPhysics(dt);
+        renderVisualLayers();
+
+        requestAnimationFrame(animateEngine);
+    }
+
+    function updateVisualPhysics(dt) {
+        // Back-buffer ambient lab beaker calculations
+        bubbleBeakers.forEach(b => {
+            if (Math.random() < 0.05) {
+                b.bubbles.push({
+                    bx: b.x + (Math.random() - 0.5) * (b.r * 1.4),
+                    by: 650,
+                    size: Math.random() * 3 + 1,
+                    speed: Math.random() * 40 + 20
+                });
+            }
+            b.bubbles.forEach((bubble, idx) => {
+                bubble.by -= bubble.speed * dt;
+                if (bubble.by < 650 - (b.h * b.liquid)) b.bubbles.splice(idx, 1);
+            });
+        });
+
+        // Hydraulic Lid Open Controller Animation
+        if (gameState === STATE_LAUNCH) {
+            launchTimer += dt;
+            lidOffset = easeOutQuad(Math.min(launchTimer / 1.2, 1.0));
+            if (launchTimer >= 1.4) {
+                gameState = STATE_GAME;
+            }
+        }
+
+        // Structural screen shake calculations
+        if (screenShake.intensity > 0) {
+            screenShake.x = (Math.random() - 0.5) * screenShake.intensity;
+            screenShake.y = (Math.random() - 0.5) * screenShake.intensity;
+            screenShake.intensity -= dt * 30;
+        } else {
+            screenShake.x = 0;
+            screenShake.y = 0;
+        }
+
+        // High velocity vector explosion shard updating loops
+        if (gameState === STATE_EXPLOSION) {
+            particles.forEach((p, idx) => {
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vy += 400 * dt; // Gravity vector simulation downward
+                p.alpha -= dt * 0.6;
+                p.rot += p.vRot * dt;
+                if (p.alpha <= 0) particles.splice(idx, 1);
+            });
+            stateTimer += dt;
+            if (stateTimer > 2.0) {
+                gameState = STATE_GAMEOVER;
+                stateTimer = 0;
+            }
+        }
+    }
+
+    function renderVisualLayers() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save();
+        ctx.translate(screenShake.x, screenShake.y);
+
+        // 1. SCENE BACKGROUND GENERATION (Lab Workbench Layout)
+        drawLabEnvironment();
+
+        // 2. INDUSTRIAL CENTRIFUGE APPARATUS ASSEMBLY
+        drawCentrifugeStructure();
+
+        ctx.restore();
+
+        // 3. MENU OVERLAY CONTROL AND HUD PANELS
+        if (gameState === STATE_HOME) drawHomeScreen();
+        if (gameState === STATE_GAMEOVER) drawGameOverScreen();
+    }
+
+    function drawLabEnvironment() {
+        // Metallic counter trim lines
+        ctx.fillStyle = '#0a0f1d';
+        ctx.fillRect(0, 520, canvas.width, 180);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(0, 520); ctx.lineTo(canvas.width, 520); ctx.stroke();
+
+        // Render ambient chemical beakers
+        bubbleBeakers.forEach(b => {
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(b.x, 650 - b.r, b.r, Math.PI, 0, false);
+            ctx.lineTo(b.x + b.r, 650); ctx.lineTo(b.x - b.r, 650);
+            ctx.fill();
+
+            // Render glowing neon chemistry liquids
+            ctx.fillStyle = b.color;
+            ctx.fillRect(b.x - b.r + 4, 650 - (b.h * b.liquid), (b.r * 2) - 8, (b.h * b.liquid) - 4);
+
+            // Render particles ascending smoothly
+            ctx.fillStyle = '#fff';
+            b.bubbles.forEach(bubble => {
+                ctx.beginPath(); ctx.arc(bubble.bx, bubble.by, bubble.size, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Clean outer structural outline
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(b.x - b.r, 650 - b.h); ctx.lineTo(b.x - b.r, 650);
+            ctx.lineTo(b.x + b.r, 650); ctx.lineTo(b.x + b.r, 650 - b.h);
+            ctx.stroke();
+        });
+
+        // Computer terminal monitoring dashboard graphic background layer
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(50, 40, 220, 140);
+        ctx.strokeStyle = '#1e293b';
+        ctx.strokeRect(50, 40, 220, 140);
+        
+        ctx.fillStyle = 'rgba(0, 255, 204, 0.05)';
+        ctx.fillRect(53, 43, 214, 134);
+
+        // Mock digital matrix scan lines
+        ctx.strokeStyle = 'rgba(0, 255, 204, 0.1)';
+        ctx.lineWidth = 1;
+        for (let l = 50; l < 180; l += 15) {
+            ctx.beginPath(); ctx.moveTo(60, l); ctx.lineTo(260, l + Math.sin(l)*5); ctx.stroke();
+        }
+    }
+
+    function drawCentrifugeStructure() {
+        let cx = CENTRIFUGE_CENTER.x;
+        let cy = CENTRIFUGE_CENTER.y;
+
+        // Outer circular enclosure plate chassis
+        ctx.fillStyle = '#111622';
+        ctx.beginPath(); ctx.arc(cx, cy, 240, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 6;
+        ctx.stroke();
+
+        // Dark internal rotor array vault
+        ctx.fillStyle = '#070a12';
+        ctx.beginPath(); ctx.arc(cx, cy, 200, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        if (gameState >= STATE_GAME || gameState === STATE_LAUNCH) {
+            // INNER ROTOR MACHINED ALUMINUM FACEPLATE
+            ctx.fillStyle = '#151d2a';
+            ctx.beginPath(); ctx.arc(cx, cy, 175, 0, Math.PI*2); ctx.fill();
+
+            // Vector boundary safety limits ring layout ring lines
+            ctx.strokeStyle = 'rgba(255, 51, 102, 0.2)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.arc(cx, cy, MAX_IMBALANCE * 35, 0, Math.PI*2); ctx.stroke();
+            ctx.setLineDash([]);
+
+            // RENDER INDIVIDUAL ROTOR SLOTS STRUCTURAL ARRAY NODES
+            for (let i = 0; i < HOLES; i++) {
+                let angle = (i * (360 / HOLES)) * (Math.PI / 180);
+                let sx = cx + ROTOR_RADIUS * Math.cos(angle);
+                let sy = cy + ROTOR_RADIUS * Math.sin(angle);
+
+                // Slot pocket base depth fills
+                ctx.fillStyle = '#090d14';
+                ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = (hoverSlot === i) ? '#00ffcc' : '#334155';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Structural slot labels
+                ctx.fillStyle = '#475569';
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(i, cx + (ROTOR_RADIUS + 25) * Math.cos(angle), cy + (ROTOR_RADIUS + 25) * Math.sin(angle));
+
+                // RENDER GLASS HIGH SHADED ARCADE TEST TUBES
+                if (board[i] !== 0) {
+                    let isSelected = (selectedSlot === i);
+                    drawArcadeTestTube(sx, sy, board[i], isSelected, angle);
+                }
+            }
+
+            // DYNAMIC TORQUE VECTOR HUD ANALYTICS GAUGE LAYER
+            let p = calculatePhysics(board);
+            let vx = cx + (p.x * 35);
+            let vy = cy + (p.y * 35);
+
+            // Center target deadzone crosshairs
+            ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(cx-15, cy); ctx.lineTo(cx+15, cy); ctx.moveTo(cx, cy-15); ctx.lineTo(cx, cy+15); ctx.stroke();
+
+            // Real-time calculation alignment line pathing
+            ctx.strokeStyle = 'rgba(0, 255, 204, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(vx, vy); ctx.stroke();
+
+            // Pulsing center of mass vector core node indicator
+            ctx.fillStyle = (p.mag > MAX_IMBALANCE * 0.75) ? '#ff3366' : '#00ffcc';
+            ctx.beginPath(); ctx.arc(vx, vy, 6, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // PREDICTIVE GHOST TRACKING INTEL HUD RENDERING ENGINE
+            if (selectedSlot !== null && hoverSlot !== null && board[hoverSlot] === 0) {
+                let ghostBoard = {...board};
+                ghostBoard[selectedSlot] = 0;
+                ghostBoard[hoverSlot] = board[selectedSlot];
+                
+                let gp = calculatePhysics(ghostBoard);
+                let gvx = cx + (gp.x * 35);
+                let gvy = cy + (gp.y * 35);
+
+                // Target alignment projection trajectories lines
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(gvx, gvy); ctx.stroke();
+                
+                // Secondary ghost target node indicator
+                ctx.fillStyle = 'rgba(234, 179, 8, 0.8)';
+                ctx.beginPath(); ctx.arc(gvx, gvy, 5, 0, Math.PI*2); ctx.fill();
+                ctx.setLineDash([]);
+            }
+
+            // DIRECT RENDERING GAME STATUS READOUT METRICS PANEL TEXTS
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`TORQUE DISPLACEMENT VECTOR: ${p.mag.toFixed(3)} G`, 60, 75);
+            ctx.fillText(`OPERATOR AUTHORIZATION: PLAYER ${currentTurn === 1 ? '1 [CORAL]' : '2 [BLUE]'}`, 60, 100);
+            ctx.fillText(`SURVIVED PROTOCOL CYCLES: ${scoreCycles}`, 60, 125);
+        }
+
+        // EXPLOSION PARTICLE FX ENGINE CANVAS RENDER LAYERS
+        if (gameState === STATE_EXPLOSION) {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rot);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size * 2);
+                ctx.restore();
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        // PNEUMATIC MECHANICAL CHAMBER SEAL COVER LIDS (Y-AXIS TRANSLATION SLIDES)
+        if (gameState === STATE_HOME || gameState === STATE_LAUNCH) {
+            let ly = cy - (lidOffset * 650);
+            
+            ctx.fillStyle = 'radial-gradient(circle, #334155 0%, #1e293b 80%, #0f172a 100%)';
+            // Heavy metallic layered look drawing vector structures
+            ctx.fillStyle = '#273142';
+            ctx.beginPath(); ctx.arc(cx, ly, 236, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // Armored hydraulic hatch viewport ring frames
+            ctx.fillStyle = '#0f131c';
+            ctx.beginPath(); ctx.arc(cx, ly, 80, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText("CHAMBER LOCKED", cx, ly + 5);
+        }
+    }
+
+    function drawArcadeTestTube(x, y, player, isSelected, angle) {
+        ctx.save();
+        ctx.translate(x, y);
+        
+        // Tilt tubes vertically straight relative to workspace canvas orientation matrix
+        if (isSelected) {
+            ctx.scale(1.25, 1.25);
+            // Glowing activation effects ring metrics
+            ctx.strokeStyle = 'rgba(0, 255, 204, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-12, -22, 24, 44);
+        }
+
+        // Glass fluid container backing profiles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.beginPath();
+        ctx.moveTo(-8, -16); ctx.lineTo(8, -16); ctx.lineTo(8, 10);
+        ctx.arc(0, 10, 8, 0, Math.PI, false); ctx.lineTo(-8, -16);
+        ctx.fill();
+
+        // Neon density tracking fluid volumes
+        let gradient = ctx.createLinearGradient(-8, 0, 8, 0);
+        if (player === 1) {
+            gradient.addColorStop(0, '#ff3366'); gradient.addColorStop(1, '#990022');
+        } else {
+            gradient.addColorStop(0, '#00ccff'); gradient.addColorStop(1, '#004499');
+        }
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.moveTo(-7, -4); ctx.lineTo(7, -4); ctx.lineTo(7, 10);
+        ctx.arc(0, 10, 7, 0, Math.PI, false); ctx.lineTo(-7, -4);
+        ctx.fill();
+
+        // High gloss glass reflection highlights vectors
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.fillRect(-5, -14, 2, 24);
+
+        // Heavy industrial sealing top friction cap seals
+        ctx.fillStyle = (player === 1) ? '#ff88a8' : '#a5f3ff';
+        ctx.fillRect(-9, -20, 18, 5);
+
+        ctx.restore();
+    }
+
+    function drawHomeScreen() {
+        // Full dim backdrop shade layer
+        ctx.fillStyle = 'rgba(3, 5, 8, 0.65)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        let menuBox = { x: 320, y: 160, w: 360, h: 320 };
+        ctx.fillStyle = '#0b0f19';
+        ctx.fillRect(menuBox.x, menuBox.y, menuBox.w, menuBox.h);
+        ctx.strokeStyle = '#00ffcc';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(menuBox.x, menuBox.y, menuBox.w, menuBox.h);
+
+        // Core header texts formatting
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 24px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("SELECT OPERATIONS MODE", 500, 210);
+
+        // RENDER TACTILE ARCADIC NEON MENU INTERACTIVE BUTTON STRUCTURE LAYERS
+        drawMenuButton(360, 250, 280, 45, "1 VS 1 TACTICAL SPLIT", "mode_1v1");
+        drawMenuButton(360, 315, 280, 45, "SOLO PROTOCOL (VS COMP)", "mode_ai");
+        drawMenuButton(360, 380, 280, 45, "RESET TELEMETRY CORDS", "mode_reset");
+    }
+
+    function drawMenuButton(x, y, w, h, text, actionId) {
+        let isHovered = false;
+        // Basic rectangular intersection detection array matrix
+        if (mx >= x && mx <= x + w && my >= y && my <= y + h) isHovered = true;
+
+        ctx.fillStyle = isHovered ? '#152335' : '#070a12';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = isHovered ? '#00ffcc' : '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, y, w, h);
+
+        ctx.fillStyle = isHovered ? '#00ffcc' : '#94a3b8';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x + w/2, y + h/2);
+    }
+
+    function drawGameOverScreen() {
+        ctx.fillStyle = 'rgba(5, 5, 10, 0.85)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#ff3366';
+        ctx.font = 'bold 42px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText("☢️ SYSTEM EXPLOSION ☢️", 500, 240);
+
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = '16px monospace';
+        ctx.fillText(`Rotor equilibrium structural yield breached during operation loop.`, 500, 290);
+        ctx.fillStyle = '#00ffcc';
+        ctx.fillText(`RETAINED TIMELINE LOG: ${scoreCycles} STABLE CYCLES`, 500, 330);
+
+        if (gameMode === "AI") {
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px monospace';
+            ctx.fillText("RECORD IDENTITY TAGS FOR ARCHIVE (3 CHR):", 500, 390);
+            
+            // Render text inputs simulated blocks layouts
+            ctx.fillStyle = '#111726';
+            ctx.fillRect(440, 410, 120, 35);
+            ctx.strokeStyle = '#334155';
+            ctx.strokeRect(440, 410, 120, 35);
+
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 20px monospace';
+            ctx.fillText((playerInitials + "_").substring(0, 4), 500, 435);
+            
+            ctx.fillStyle = '#475569';
+            ctx.font = '10px monospace';
+            ctx.fillText("[PRESS ENTER KEY TO RECORD SCORES]", 500, 470);
+        } else {
+            drawMenuButton(380, 380, 240, 45, "RETURN TO ACCESS TERMINAL", "goto_home");
+        }
+    }
+
+    // INTERACTIVE TRACKING SYSTEM COORDINATE CAPTURE MATRIX REGISTERS
+    let mx = 0, my = 0;
+    window.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+        my = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+        if (gameState === STATE_GAME) {
+            // Check structural geometric alignment coordinate collisions for slot mouse tracking updates
+            let foundHover = null;
+            for (let i = 0; i < HOLES; i++) {
+                let angle = (i * (360 / HOLES)) * (Math.PI / 180);
+                let sx = CENTRIFUGE_CENTER.x + ROTOR_RADIUS * Math.cos(angle);
+                let sy = CENTRIFUGE_CENTER.y + ROTOR_RADIUS * Math.sin(angle);
+                let dist = Math.hypot(mx - sx, my - sy);
+                if (dist < 18) {
+                    foundHover = i;
+                    break;
+                }
+            }
+            hoverSlot = foundHover;
+            canvas.style.cursor = (hoverSlot !== null) ? 'pointer' : 'default';
+        } else {
+            hoverSlot = null;
+            canvas.style.cursor = 'default';
+        }
+    });
+
+    window.addEventListener('click', () => {
+        if (gameState === STATE_HOME) {
+            if (mx >= 360 && mx <= 640) {
+                if (my >= 250 && my <= 295) { gameMode = "1v1"; triggerCoreLaunch(); }
+                if (my >= 315 && my <= 360) { gameMode = "AI"; triggerCoreLaunch(); }
+                if (my >= 380 && my <= 425) { location.reload(); }
+            }
+        }
+        else if (gameState === STATE_GAME) {
+            if (hoverSlot !== null) {
+                handleRotorGridClick(hoverSlot);
+            }
+        }
+        else if (gameState === STATE_GAMEOVER && gameMode !== "AI") {
+            if (mx >= 380 && mx <= 620 && my >= 380 && my <= 425) {
+                gameState = STATE_HOME;
+                selectedSlot = null;
+                hoverSlot = null;
+            }
+        }
+    });
+
+    // TEXT CAPTURE KEYBOARD HOOK ENTRY REGISTERS FOR LEADERBOARD COMPILATION
+    window.addEventListener('keydown', (e) => {
+        if (gameState === STATE_GAMEOVER && gameMode === "AI") {
+            if (e.key === "Enter" && playerInitials.length > 0) {
+                commitScoreData();
+            } else if (e.key === "Backspace") {
+                playerInitials = playerInitials.slice(0, -1);
+            } else if (e.key.length === 1 && playerInitials.length < 3 && /[a-zA-Z0-9]/.test(e.key)) {
+                playerInitials += e.key.toUpperCase();
+            }
+        }
+    });
+
+    function triggerCoreLaunch() {
+        generateRandomArray();
+        currentTurn = 1;
+        scoreCycles = 0;
+        launchTimer = 0;
+        lidOffset = 0;
+        gameState = STATE_LAUNCH;
+    }
+
+    function handleRotorGridClick(index) {
+        if (currentTurn === 2 && gameMode === "AI") return; // Handshake locks for AI thread calculations
+
+        if (selectedSlot === null) {
+            if (board[index] === currentTurn) {
+                selectedSlot = index;
+            }
+        } else {
+            if (selectedSlot === index) {
+                selectedSlot = null;
+                return;
+            }
+
+            if (board[index] === 0) {
+                // Execute linear vector coordinate update transformations
+                board[index] = currentTurn;
+                board[selectedSlot] = 0;
+                selectedSlot = null;
+                scoreCycles++;
+
+                if (evaluateSystemPhysics()) {
+                    currentTurn = 3 - currentTurn;
+                    if (gameMode === "AI") {
+                        setTimeout(executeAIBrainAlgorithms, 600);
+                    }
+                }
+            }
+        }
     }
 
     function calculatePhysics(targetBoard) {
         let xSum = 0, ySum = 0;
         for (let i = 0; i < HOLES; i++) {
             if (targetBoard[i] !== 0) {
-                const angle = (i * (360 / HOLES)) * (Math.PI / 180);
+                let angle = (i * (360 / HOLES)) * (Math.PI / 180);
                 xSum += Math.cos(angle);
                 ySum += Math.sin(angle);
             }
         }
         return { mag: Math.sqrt(xSum*xSum + ySum*ySum), x: xSum, y: ySum };
-    }
-
-    function handleSlotClick(index) {
-        if (!gameActive || currentTurn === 2 && gameMode === "AI") return;
-
-        const clickedSlotDOM = document.querySelector(`[data-index='${index}']`);
-
-        if (selectedSlot === null) {
-            if (board[index] === currentTurn) {
-                selectedSlot = index;
-                clickedSlotDOM.classList.add('selected');
-            }
-        } else {
-            if (selectedSlot === index) {
-                clickedSlotDOM.classList.remove('selected');
-                selectedSlot = null;
-                return;
-            }
-
-            if (board[index] === 0) {
-                // Execute spatial translation
-                const sourceSlotDOM = document.querySelector(`[data-index='${selectedSlot}']`);
-                sourceSlotDOM.classList.remove('selected');
-                
-                board[index] = currentTurn;
-                board[selectedSlot] = 0;
-                
-                selectedSlot = null;
-                survivalMoves++;
-                
-                if (evaluateSystemState()) {
-                    currentTurn = 3 - currentTurn;
-                    updateRotorVisuals();
-                    
-                    if (gameMode === "AI" && gameActive) {
-                        setTimeout(executeAIBrain, 800);
-                    }
-                }
-            }
-        }
     }
 
     function getValidMoves(targetBoard, player) {
@@ -338,93 +671,106 @@ game_html = """
         return moves;
     }
 
-    function executeAIBrain() {
+    function executeAIBrainAlgorithms() {
         const legalMoves = getValidMoves(board, 2);
-        
         if (legalMoves.length === 0) {
-            triggerGameOver("♟️ CONTRTAINMENT CHECKMATE", "AI has no safe trajectories remaining. YOU WIN!");
+            // Checkmate victory condition triggered natively
+            gameState = STATE_GAMEOVER;
             return;
         }
 
-        // 1-Step Predictive Trajectory Lookahead Minimax Optimization
-        let targetedMove = null;
-        let minimumHumanRoutes = 999;
-        let optimalStability = 999;
+        // Optimization lookahead strategy matching manual specifications
+        let chosenMove = null;
+        let minimumHumanAvenues = 999;
+        let bestImbalance = 999;
 
-        legalMoves.forEach(move => {
-            let simBoard = {...board};
-            simBoard[move.from] = 0;
-            simBoard[move.to] = 2;
+        legalMoves.forEach(m => {
+            let sim = {...board};
+            sim[m.from] = 0; sim[m.to] = 2;
+            let humanOptions = getValidMoves(sim, 1).length;
+            let currentImbalance = calculatePhysics(sim).mag;
 
-            let humanResponses = getValidMoves(simBoard, 1).length;
-            let currentImbalance = calculatePhysics(simBoard).mag;
-
-            if (humanResponses < minimumHumanRoutes) {
-                minimumHumanRoutes = humanResponses;
-                optimalStability = currentImbalance;
-                targetedMove = move;
-            } else if (humanResponses === minimumHumanRoutes) {
-                if (currentImbalance < optimalStability) {
-                    optimalStability = currentImbalance;
-                    targetedMove = move;
+            if (humanOptions < minimumHumanAvenues) {
+                minimumHumanAvenues = humanOptions;
+                bestImbalance = currentImbalance;
+                chosenMove = m;
+            } else if (humanOptions === minimumHumanAvenues) {
+                if (currentImbalance < bestImbalance) {
+                    bestImbalance = currentImbalance;
+                    chosenMove = m;
                 }
             }
         });
 
-        if (!targetedMove) targetedMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        if (!chosenMove) chosenMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
 
-        // Commit AI trajectory modifications
-        board[targetedMove.from] = 0;
-        board[targetedMove.to] = 2;
-        
-        if (evaluateSystemState()) {
+        board[chosenMove.from] = 0;
+        board[chosenMove.to] = 2;
+
+        if (evaluateSystemPhysics()) {
             currentTurn = 1;
-            updateRotorVisuals();
         }
     }
 
-    function evaluateSystemState() {
-        const physics = calculatePhysics(board);
-        
-        if (physics.mag > MAX_IMBALANCE) {
-            triggerGameOver("💥 ROTOR EXPLOSION", `System exceeded safe limit. Player ${currentTurn === 1 ? '2' : '1'} wins.`);
+    function evaluateSystemPhysics() {
+        let p = calculatePhysics(board);
+        if (p.mag > MAX_IMBALANCE) {
+            triggerExplosionSimulation();
             return false;
         }
-        if (physics.mag < 0.01) {
-            triggerGameOver("⚖️ ISOTROPIC CONTAINMENT", `Player ${currentTurn === 1 ? '1' : '2'} achieved total equilibrium and won instantly!`);
+        if (p.mag < 0.01) {
+            // Absolute balance condition
+            gameState = STATE_GAMEOVER;
             return false;
         }
-        
-        const nextPlayer = 3 - currentTurn;
+        let nextPlayer = 3 - currentTurn;
         if (getValidMoves(board, nextPlayer).length === 0) {
-            triggerGameOver("♟️ ROTATIONAL CHECKMATE", `Player ${nextPlayer === 1 ? '1' : '2'} has no safe moves remaining. Player ${currentTurn === 1 ? '1' : '2'} wins.`);
+            gameState = STATE_GAMEOVER;
             return false;
         }
         return true;
     }
 
-    function triggerGameOver(title, subtitle) {
-        gameActive = false;
-        document.getElementById('end-title').innerText = title;
-        document.getElementById('end-subtitle').innerText = subtitle;
-        document.getElementById('end-screen').style.display = 'flex';
-        
-        if (gameMode === "AI" && currentTurn === 2) {
-            document.getElementById('score-section').style.display = 'block';
-        } else {
-            document.getElementById('restart-btn').style.display = 'block';
+    function triggerExplosionSimulation() {
+        gameState = STATE_EXPLOSION;
+        stateTimer = 0;
+        screenShake.intensity = 45;
+        particles = [];
+        playerInitials = "";
+
+        // Seed velocity particle cloud variables matching color metrics
+        for (let i = 0; i < 160; i++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = Math.random() * 320 + 80;
+            let clr = Math.random() < 0.5 ? '#ff3366' : '#00ccff';
+            if (Math.random() < 0.2) clr = '#ffffff';
+
+            particles.push({
+                x: CENTRIFUGE_CENTER.x + (Math.random()-0.5)*100,
+                y: CENTRIFUGE_CENTER.y + (Math.random()-0.5)*100,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed - 50,
+                size: Math.random() * 6 + 3,
+                color: clr,
+                alpha: 1.0,
+                rot: Math.random() * 5,
+                vRot: (Math.random() - 0.5) * 10
+            });
         }
     }
 
     function commitScoreData() {
-        const initials = document.getElementById('initials').value || "XYZ";
-        // Query param bridge redirection back to Streamlit engine filesystem
-        window.parent.location.search = `?submit_score=true&name=${initials}&score=${survivalMoves}`;
+        // Build data serialization metrics framework back via standard query components
+        window.parent.location.search = `?submit_score=true&name=${playerInitials}&score=${scoreCycles}`;
+    }
+
+    function easeOutQuad(x) {
+        return 1 - (1 - x) * (1 - x);
     }
 </script>
 </body>
 </html>
 """
 
-# Render the self-contained arcade application viewport cleanly inside Streamlit
-st.components.v1.html(game_html, height=670, scrolling=False)
+# Render application platform window container element layout viewport frames
+st.components.v1.html(game_html, height=715, scrolling=False)
