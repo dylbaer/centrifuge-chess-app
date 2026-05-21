@@ -1,310 +1,430 @@
 import streamlit as st
-import numpy as np
-import plotly.graph_objects as go
 import json
 import os
-import random
 
-# --- CONFIGURATION ---
-HOLES = 24
-MAX_IMBALANCE = 2.0  # Safe structural threshold for a 24-hole rotor
-LEADERBOARD_FILE = "leaderboard_v2.json"
+LEADERBOARD_FILE = "centrifuge_leaderboard.json"
 
-st.set_page_config(page_title="Centrifuge Chess Pro", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Centrifuge Chess: Overclocked",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# --- CUSTOM LAB-BENCH STYLING ---
+# --- BACKEND LEADERBOARD SYNCHRONIZATION ---
+def load_scores():
+    if os.path.exists(LEADERBOARD_FILE):
+        try:
+            with open(LEADERBOARD_FILE, "r") as f:
+                return sorted(json.load(f), key=lambda x: x['score'], reverse=True)[:5]
+        except:
+            return []
+    return []
+
+# Handle new score submissions from the game engine
+if "submit_score" in st.query_params:
+    name = st.query_params.get("name", "ANON")
+    score = int(st.query_params.get("score", 0))
+    scores = load_scores()
+    scores.append({"name": name[:3].upper(), "score": score})
+    scores = sorted(scores, key=lambda x: x['score'], reverse=True)[:5]
+    with open(LEADERBOARD_FILE, "w") as f:
+        json.dump(scores, f)
+    st.query_params.clear()
+    st.rerun()
+
+# --- HIGH-TECH UI WRAPPER ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; color: #ffffff; }
-    .stSelectbox label { color: #00ffcc !important; font-weight: bold; }
-    .stRadio label { color: #ffffff !important; }
-    div[data-testid="stMetricValue"] { color: #ff0055; font-family: 'Courier New', monospace; }
-    .status-box { padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 15px; }
+    body { background-color: #05070a; color: #e2e8f0; font-family: 'Courier New', monospace; }
+    .title-container { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 10px; }
+    .glitch-title { font-size: 2.5rem; font-weight: 900; color: #00ffcc; text-shadow: 0 0 10px rgba(0,255,220,0.5); }
+    .leaderboard-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .lb-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #1e293b; font-size: 1.1rem; }
+    .lb-rank { color: #ff3366; font-weight: bold; }
+    .lb-name { color: #fff; }
+    .lb-score { color: #00ffcc; font-family: monospace; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- CORE PHYSICS ENGINE ---
-def calculate_imbalance(board):
-    """Calculates the center of mass vector magnitude of the rotor."""
-    x_sum, y_sum = 0.0, 0.0
-    for pos, player in board.items():
-        if player != 0:
-            angle = np.radians(pos * (360 / HOLES))
-            x_sum += np.cos(angle)
-            y_sum += np.sin(angle)
-    magnitude = np.sqrt(x_sum**2 + y_sum**2)
-    return magnitude, x_sum, y_sum
+st.markdown("""
+<div class="title-container">
+    <span class="glitch-title">☢️ CENTRIFUGE CHESS: OVERCLOCK)</span>
+    <p style="color: #64748b; margin-top: 5px;">Maintain angular velocity. Manipulate torque. Do not rupture the core.</p>
+</div>
+""", unsafe_allow_html=True)
 
-def get_valid_moves(board, player):
-    """Returns all legal (from_pos, to_pos) moves that do not instantly exceed MAX_IMBALANCE."""
-    valid_moves = []
-    my_tubes = [pos for pos, p in board.items() if p == player]
-    empty_holes = [pos for pos, p in board.items() if p == 0]
+col_game, col_sidebar = st.columns([2, 1])
+
+with col_sidebar:
+    st.markdown("<div class='leaderboard-card'>", unsafe_allow_html=True)
+    st.subheader("🏆 ARCHIVED TOP OPERATORS")
+    top_scores = load_scores()
+    if top_scores:
+        for idx, entry in enumerate(top_scores):
+            st.markdown(f"""
+            <div class='lb-row'>
+                <span><span class='lb-rank'>#{idx+1}</span> <span class='lb-name'>{entry['name']}</span></span>
+                <span class='lb-score'>{entry['score']} Cycles</span>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.write("No telemetry recorded. Set the laboratory baseline.")
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    for start in my_tubes:
-        for end in empty_holes:
-            temp_board = board.copy()
-            temp_board[start] = 0
-            temp_board[end] = player
-            imbalance, _, _ = calculate_imbalance(temp_board)
-            if imbalance <= MAX_IMBALANCE:
-                valid_moves.append((start, end))
-    return valid_moves
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("🔬 PROTOCOL MANUAL (HOW TO PLAY)"):
+        st.markdown("""
+        * **Objective:** Balance the 24-hole structural rotor array. 
+        * **Controls:** Click a test tube to extract it. Click an empty node to secure it.
+        * **Vector Mechanics:** Every move modifies the center of mass. Keep the glowing reticle out of the outer **Red Boundary**.
+        * **Symmetry Victory:** Bring the center of mass to absolute zero ($0.00$) to secure instant containment success.
+        * **Checkmate:** Force your opponent into a configuration where every single move they can make causes a catastrophic rupture.
+        """)
 
-# --- SMART LAB-AI BRAIN ---
-def get_best_ai_move(board):
-    """Evaluates moves to minimize human options (trap strategy) and preserve AI stability."""
-    valid_ai_moves = get_valid_moves(board, 2)
-    if not valid_ai_moves:
-        return None
+# --- EMULATION SIMULATOR ENGINE (HTML5/JS Canvas/CSS3) ---
+game_html = """
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { background: #05070a; color: #fff; font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; overflow: hidden; }
+        #canvas-container { position: relative; width: 600px; height: 600px; display: flex; justify-content: center; align-items: center; }
         
-    best_move = None
-    min_human_options = 999
-    best_stability = 999
+        /* THE CENTRIFUGE STRUCTURE */
+        .centrifuge-body { position: absolute; width: 560px; height: 560px; border-radius: 50%; background: radial-gradient(circle, #1a202c 40%, #0f1319 70%, #2d3748 100%); border: 8px solid #4a5568; box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 30px rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; transition: transform 0.1s; }
+        .rotor-plate { position: absolute; width: 440px; height: 440px; border-radius: 50%; background: radial-gradient(circle, #11141a 50%, #1a202c 100%); border: 4px solid #2d3748; box-shadow: inset 0 0 20px #000; }
+        
+        /* HEAVY HYDRAULIC MECHANICAL LID */
+        .centrifuge-lid { position: absolute; width: 576px; height: 576px; border-radius: 50%; background: radial-gradient(circle, #4a5568 20%, #2d3748 60%, #1a202c 100%); border: 4px solid #718096; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 10; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 1.2s cubic-bezier(0.77, 0, 0.175, 1); }
+        .lid-glass { width: 180px; height: 180px; border-radius: 50%; background: rgba(0, 255, 200, 0.05); border: 6px solid #1a202c; box-shadow: inset 0 0 20px rgba(0,255,220,0.2); display: flex; justify-content: center; align-items: center; color: #00ffcc; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 8px #00ffcc; }
+        .start-btn { margin-top: 30px; padding: 12px 32px; background: #ff3366; border: none; border-radius: 6px; color: white; font-weight: bold; cursor: pointer; font-size: 1.1rem; box-shadow: 0 0 15px rgba(255,51,102,0.4); transition: 0.2s; }
+        .start-btn:hover { background: #ff5588; transform: scale(1.05); }
+        
+        /* OPEN STATE ANIMATION */
+        .lid-open { transform: translateY(-700px) scale(0.9); opacity: 0; pointer-events: none; }
+        
+        /* PHYSICAL SLOTS AND GLASS TUBES */
+        .slot { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: #090d13; border: 2px solid #2d3748; transform: translate(-50%, -50%); cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 2px 5px rgba(0,0,0,0.8); transition: 0.2s; }
+        .slot:hover { border-color: #718096; background: #151b26; }
+        .slot-lbl { position: absolute; color: #4a5568; font-size: 9px; font-family: monospace; font-weight: bold; pointer-events: none; }
+        
+        /* DETAILED TEST TUBE GRAPHICS */
+        .test-tube { position: absolute; width: 20px; height: 34px; border-radius: 4px 4px 10px 10px; background: linear-gradient(90deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 30%, rgba(0,0,0,0.4) 100%); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 8px rgba(0,0,0,0.5); pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; overflow: hidden; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .tube-cap { position: absolute; top: 0; width: 100%; height: 8px; border-radius: 3px 3px 0 0; }
+        .tube-liquid { width: 100%; height: 70%; border-radius: 0 0 8px 8px; }
+        
+        /* PLAYER COLOUR GRADIENTS */
+        .p1-gradient { background: linear-gradient(180deg, #ff3366 #cc0044); box-shadow: 0 0 12px rgba(255,51,102,0.6); }
+        .p1-cap { background: #ff88a8; border-bottom: 1px solid #cc0044; }
+        .p2-gradient { background: linear-gradient(180deg, #00ccff, #0066cc); box-shadow: 0 0 12px rgba(0,204,255,0.6); }
+        .p2-cap { background: #88e5ff; border-bottom: 1px solid #0066cc; }
+        
+        /* TACTILE STATES */
+        .slot.selected { border-color: #00ffcc !important; box-shadow: 0 0 15px #00ffcc; }
+        .slot.selected .test-tube { transform: scale(1.3) translateY(-5px); z-index: 5; }
+        
+        /* HUD INTERFACE LAYER */
+        .hud-shroud { position: absolute; top: -50px; width: 100%; display: flex; justify-content: space-between; font-family: monospace; font-size: 13px; color: #a0aec0; }
+        .hud-metric { background: #0f172a; padding: 6px 12px; border-radius: 4px; border: 1px solid #1e293b; }
+        
+        /* VECHTOR TARGET RETICLE */
+        .center-axis { position: absolute; width: 100px; height: 100px; border: 1px dashed rgba(255,255,255,0.15); border-radius: 50%; pointer-events: none; }
+        .danger-ring { position: absolute; width: 80px; height: 80px; border: 2px dashed rgba(255, 51, 102, 0.3); border-radius: 50%; pointer-events: none; }
+        .vector-dot { position: absolute; width: 10px; height: 10px; background: #00ffcc; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 10px #00ffcc; transform: translate(-50%, -50%); transition: all 0.4s ease-out; }
+        
+        /* HUD SYSTEM MODALS */
+        .screen-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5,7,10,0.9); z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 12px; display: none; }
+        .modal-title { font-size: 2rem; font-weight: bold; color: #ff3366; margin-bottom: 15px; text-shadow: 0 0 10px rgba(255,51,102,0.5); }
+        .score-input { background: #1a202c; border: 2px solid #2d3748; color: #fff; padding: 10px; font-size: 1.2rem; border-radius: 6px; width: 120px; text-align: center; text-transform: uppercase; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
 
-    # Look ahead 1 step
-    for ai_move in valid_ai_moves:
-        start, end = ai_move
-        simulated_board = board.copy()
-        simulated_board[start] = 0
-        simulated_board[end] = 2
+<div id="canvas-container">
+    <div class="hud-shroud">
+        <div class="hud-metric" id="turn-display">SYSTEM STATUS: LOADING...</div>
+        <div class="hud-metric" id="weight-display">IMBALANCE: 0.00 / 2.00</div>
+    </div>
+
+    <div class="centrifuge-body" id="chassis">
+        <div class="rotor-plate" id="rotor"></div>
         
-        # How many legal moves will the human have left?
-        human_options = len(get_valid_moves(simulated_board, 1))
-        ai_imbalance, _, _ = calculate_imbalance(simulated_board)
+        <div class="center-axis"></div>
+        <div class="danger-ring"></div>
+        <div id="reticle" class="vector-dot" style="left: 50%; top: 50%;"></div>
+    </div>
+
+    <div class="centrifuge-lid" id="lid">
+        <div class="lid-glass">CORE SEALED</div>
+        <button class="start-btn" onclick="openCentrifuge()">INITIALIZE LAUNCH</button>
+    </div>
+
+    <div class="screen-overlay" id="end-screen">
+        <div class="modal-title" id="end-title">SYSTEM FAILURE</div>
+        <p id="end-subtitle" style="color: #a0aec0; margin-bottom: 25px;">Core integrity ruptured.</p>
+        <div id="score-section" style="display:none; text-align:center;">
+             <input type="text" id="initials" class="score-input" placeholder="XYZ" maxlength="3">
+             <br>
+             <button class="start-btn" style="margin-top:5px;" onclick="commitScoreData()">ARCHIVE TELEMETRY</button>
+        </div>
+        <button class="start-btn" id="restart-btn" style="background:#4a5568; box-shadow:none; display:none;" onclick="location.reload()">RECALIBRATE CORE</button>
+    </div>
+</div>
+
+<script>
+    const HOLES = 24;
+    const MAX_IMBALANCE = 2.0;
+    const RADIUS = 185; // Rotor placement radius
+    
+    let board = {};
+    let selectedSlot = null;
+    let currentTurn = 1; 
+    let gameMode = "1v1";
+    let gameActive = true;
+    let survivalMoves = 0;
+
+    // Detect initialization parameters from Streamlit environment
+    const parentParams = new URLSearchParams(window.parent.location.search);
+    gameMode = window.parent.document.querySelector("input[name='Select Operational Protocol:']:checked")?.value.includes("AI") ? "AI" : "1v1";
+
+    // Initialize physical rotor configuration grid mapping
+    const rotor = document.getElementById('rotor');
+    for (let i = 0; i < HOLES; i++) {
+        const angle = (i * (360 / HOLES)) * (Math.PI / 180);
+        const x = 220 + RADIUS * Math.cos(angle);
+        const y = 220 + RADIUS * Math.sin(angle);
         
-        # Priority 1: Starve the human of options. Priority 2: Stay perfectly stable.
-        if human_options < min_human_options:
-            min_human_options = human_options
-            best_stability = ai_imbalance
-            best_move = ai_move
-        elif human_options == min_human_options:
-            if ai_imbalance < best_stability:
-                best_stability = ai_imbalance
-                best_move = ai_move
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        slot.style.left = `${x}px`;
+        slot.style.top = `${y}px`;
+        slot.setAttribute('data-index', i);
+        slot.onclick = () => handleSlotClick(i);
+        
+        const label = document.createElement('div');
+        label.className = 'slot-lbl';
+        label.innerText = i;
+        label.style.left = `${220 + (RADIUS + 24) * Math.cos(angle)}px`;
+        label.style.top = `${220 + (RADIUS + 24) * Math.sin(angle)}px`;
+        
+        rotor.appendChild(slot);
+        document.getElementById('chassis').appendChild(label);
+        board[i] = 0;
+    }
+
+    // High Symmetry baseline loading array profiles
+    const p1Starting = [0, 4, 8, 12, 16, 20];
+    const p2Starting = [2, 6, 10, 14, 18, 22];
+
+    p1Starting.forEach(pos => board[pos] = 1);
+    p2Starting.forEach(pos => board[pos] = 2);
+
+    function updateRotorVisuals() {
+        document.querySelectorAll('.slot').forEach(slot => {
+            const idx = slot.getAttribute('data-index');
+            slot.innerHTML = '';
+            if (board[idx] !== 0) {
+                const tube = document.createElement('div');
+                tube.className = 'test-tube';
                 
-    return best_move if best_move else random.choice(valid_ai_moves)
-
-# --- STATE INITIALIZATION ---
-def init_game():
-    st.session_state.board = {i: 0 for i in range(HOLES)}
-    
-    # Player 1 (Red): Perfect balanced hexagon layout
-    for pos in [0, 4, 8, 12, 16, 20]:
-        st.session_state.board[pos] = 1
-        
-    # Player 2 (Blue/AI): Perfectly balanced alternating hexagon layout
-    for pos in [2, 6, 10, 14, 18, 22]:
-        st.session_state.board[pos] = 2
-    
-    st.session_state.turn = 1
-    st.session_state.game_over = False
-    st.session_state.status_msg = "🚨 Systems Nominal. Rotor is perfectly balanced. Player 1, break the symmetry."
-    st.session_state.moves_survived = 0
-
-if 'board' not in st.session_state:
-    init_game()
-
-# --- EPHEMERAL LEADERBOARD ---
-def load_leaderboard():
-    if os.path.exists(LEADERBOARD_FILE):
-        try:
-            with open(LEADERBOARD_FILE, "r") as f: return json.load(f)
-        except: return []
-    return []
-
-def save_score(name, score):
-    lb = load_leaderboard()
-    lb.append({"name": name, "score": score})
-    lb = sorted(lb, key=lambda x: x['score'], reverse=True)[:5]
-    with open(LEADERBOARD_FILE, "w") as f:
-        json.dump(lb, f)
-
-# --- ADVANCED UI GRAPHICS ---
-def draw_advanced_rotor():
-    board = st.session_state.board
-    fig = go.Figure()
-
-    # Outer metal shroud of the centrifuge
-    fig.add_shape(type="circle", xref="x", yref="y", x0=-1.4, y0=-1.4, x1=1.4, y1=1.4,
-                  line=dict(color="#444", width=3), fillcolor="#1f242d")
-    
-    # The rotating internal rotor assembly
-    fig.add_shape(type="circle", xref="x", yref="y", x0=-1.15, y0=-1.15, x1=1.15, y1=1.15,
-                  line=dict(color="#666", width=1), fillcolor="#11141a")
-
-    # DANGER ZONE BOUNDARY RING
-    fig.add_shape(type="circle", xref="x", yref="y", 
-                  x0=-MAX_IMBALANCE, y0=-MAX_IMBALANCE, x1=MAX_IMBALANCE, y1=MAX_IMBALANCE,
-                  line=dict(color="rgba(255, 0, 85, 0.35)", width=2, dash="dash"))
-
-    # Render structural positions and slots
-    for pos in range(HOLES):
-        angle = np.radians(pos * (360 / HOLES))
-        x, y = np.cos(angle), np.sin(angle)
-        
-        color = "#222733"  # Empty slot
-        line_clr = "#444"
-        if board[pos] == 1: 
-            color = "#ff3366"  # P1 Neon Coral
-            line_clr = "#ffffff"
-        elif board[pos] == 2: 
-            color = "#00ccff"  # P2 Bio-Electric Blue
-            line_clr = "#ffffff"
-        
-        fig.add_shape(type="circle", xref="x", yref="y",
-                      x0=x-0.08, y0=y-0.08, x1=x+0.08, y1=y+0.08,
-                      line=dict(color=line_clr, width=1.5), fillcolor=color)
-        
-        # Pinpoint text numbers
-        fig.add_annotation(x=x*1.28, y=y*1.28, text=str(pos), showarrow=False, 
-                           font=dict(size=10, color="#8892b0", family="Courier New"))
-
-    # Compute Real-time Center of Mass Displacement Vector
-    imbalance, x_sum, y_sum = calculate_imbalance(board)
-    
-    # Vector trail line
-    fig.add_trace(go.Scatter(x=[0, x_sum], y=[0, y_sum], mode="lines",
-                             line=dict(color="#00ffcc", width=3)))
-    # Pulsing vector node
-    node_color = "#ff0055" if imbalance > (MAX_IMBALANCE * 0.75) else "#00ffcc"
-    fig.add_trace(go.Scatter(x=[x_sum], y=[y_sum], mode="markers",
-                             marker=dict(symbol="circle-dot", size=14, color=node_color, line=dict(color="#fff", width=2))))
-
-    fig.update_layout(xaxis=dict(visible=False, range=[-2.2, 2.2]), 
-                      yaxis=dict(visible=False, range=[-2.2, 2.2]),
-                      width=550, height=550, showlegend=False, 
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                      margin=dict(l=10, r=10, t=10, b=10))
-    return fig, imbalance
-
-# --- INTERACTIVE DASHBOARD ENVIRONMENT ---
-st.title("⚡ CENTRIFUGE CHESS: ADVANCED ROTOR TACTICS")
-st.caption("A physics-based strategic duel for bench scientists.")
-st.write("---")
-
-col_left, col_right = st.columns([1.3, 1])
-
-with col_left:
-    fig, current_imbalance = draw_advanced_rotor()
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-
-with col_right:
-    st.header("⚙️ Control Panel")
-    mode = st.radio("Select Operational Protocol:", ["1v1 Local (Vs Colleague)", "Single Player (Vs Advanced AI)"], on_change=init_game)
-    
-    if st.button("Emergency System Reset (Restart)"):
-        init_game()
-        st.rerun()
-
-    # Dynamic status boxes depending on danger state
-    box_color = "#1f1f2e"
-    if current_imbalance > (MAX_IMBALANCE * 0.75):
-        box_color = "#4a1525" # Deep warning crimson
-        
-    st.markdown(f'<div class="status-box" style="background-color: {box_color};"><h4>{st.session_state.status_msg}</h4></div>', unsafe_allow_html=True)
-
-    # Metric tracking
-    c1, c2 = st.columns(2)
-    with c1:
-        st.metric(label="Current G-Force Imbalance Vector", value=f"{current_imbalance:.3f}")
-    with c2:
-        st.metric(label="Structural Yield Limit", value=f"{MAX_IMBALANCE:.1f}")
-
-    if not st.session_state.game_over:
-        current_player = st.session_state.turn
-        p_name = "Player 1 (Coral)" if current_player == 1 else "Player 2 (Electric Blue)"
-        
-        st.subheader(f"Current Authorization: {p_name}")
-
-        my_tubes = [pos for pos, p in st.session_state.board.items() if p == current_player]
-        empty_holes = [pos for pos, p in st.session_state.board.items() if p == 0]
-
-        cc1, cc2 = st.columns(2)
-        with cc1:
-            from_pos = st.selectbox("Extract Tube From Unit:", my_tubes, key="from_p")
-        with cc2:
-            to_pos = st.selectbox("Insert Tube Into Unit:", empty_holes, key="to_p")
-
-        # Live predictive physics safety calculation
-        test_board = st.session_state.board.copy()
-        test_board[from_pos] = 0
-        test_board[to_pos] = current_player
-        pred_imb, _, _ = calculate_imbalance(test_board)
-        
-        if pred_imb > MAX_IMBALANCE:
-            st.warning(f"⚠️ CRITICAL WARNING: This move creates an imbalance of {pred_imb:.2f}! Locking this will trigger immediate catastrophic failure.")
-        elif pred_imb < 0.01:
-            st.success("✨ HARMONY PREDICTION: This move achieves zero net torque. You will win instantly if locked!")
-
-        if st.button("⚡ EXECUTE DEVIATION (LOCK MOVE)"):
-            # Commit Move
-            st.session_state.board[from_pos] = 0
-            st.session_state.board[to_pos] = current_player
-            
-            # Re-evaluate system state
-            new_imbalance, _, _ = calculate_imbalance(st.session_state.board)
-            
-            if new_imbalance > MAX_IMBALANCE:
-                st.session_state.game_over = True
-                st.session_state.status_msg = f"💥 ROTOR EXPLOSION! {p_name} destroyed the equipment. Opponent wins!"
-            elif new_imbalance < 0.01:
-                st.session_state.game_over = True
-                st.session_state.status_msg = f"⚖️ PERFECTION! {p_name} counter-balanced the array flawlessly and won!"
-            else:
-                # Turn Handshake
-                st.session_state.turn = 3 - current_player
-                st.session_state.moves_survived += 1
-                st.session_state.status_msg = f"Move successful. System torque modified. Handing controls to next operator."
+                const cap = document.createElement('div');
+                cap.className = `tube-cap ${board[idx] === 1 ? 'p1-cap' : 'p2-cap'}`;
                 
-                # Checkmate Scan
-                if len(get_valid_moves(st.session_state.board, st.session_state.turn)) == 0:
-                     st.session_state.game_over = True
-                     opp_name = "Player 2" if st.session_state.turn == 1 else "Player 1"
-                     st.session_state.status_msg = f"♟️ STRUCTURAL CHECKMATE! {opp_name} has no moves left that don't destroy the chamber. {p_name} wins!"
-
-            st.rerun()
-
-    # --- ENHANCED LOOKAHEAD AI PHASE ---
-    if not st.session_state.game_over and mode == "Single Player (vs Advanced AI)" and st.session_state.turn == 2:
-        with st.spinner("AI calculating angular trajectories..."):
-            ai_move = get_best_ai_move(st.session_state.board)
-            
-            if not ai_move:
-                st.session_state.game_over = True
-                st.session_state.status_msg = "♟️ STRUCTURAL CHECKMATE! The AI was out-maneuvered and has no legal vectors left. YOU WIN!"
-            else:
-                ai_from, ai_to = ai_move
-                st.session_state.board[ai_from] = 0
-                st.session_state.board[ai_to] = 2
+                const liquid = document.createElement('div');
+                liquid.className = `tube-liquid ${board[idx] === 1 ? 'p1-gradient' : 'p2-gradient'}`;
                 
-                new_imbalance, _, _ = calculate_imbalance(st.session_state.board)
-                if new_imbalance < 0.01:
-                    st.session_state.game_over = True
-                    st.session_state.status_msg = "⚖️ AI reached perfect balance counterweighting. AI wins!"
-                else:
-                    st.session_state.turn = 1
-                    st.session_state.status_msg = f"🤖 AI calculated counter-forces and shifted tube {ai_from} → {ai_to}. Your turn."
-                st.rerun()
+                tube.appendChild(cap);
+                tube.appendChild(liquid);
+                slot.appendChild(tube);
+            }
+        });
 
-# --- HIGH SCORE ARCHIVE ---
-if mode == "Single Player (vs Advanced AI)" and st.session_state.game_over:
-     st.write("---")
-     st.subheader("📊 Session Telemetry Record")
-     st.info(f"You maintained system integrity for {st.session_state.moves_survived} structural alterations.")
-     
-     score_name = st.text_input("Enter Initials for Lab Archive:", max_chars=3)
-     if st.button("Commit Score to Log"):
-         if score_name:
-             save_score(score_name.upper(), st.session_state.moves_survived)
-             st.success("Data filed successfully!")
-             st.rerun()
+        const physics = calculatePhysics(board);
+        document.getElementById('weight-display').innerText = `IMBALANCE: ${physics.mag.toFixed(3)} / ${MAX_IMBALANCE.toFixed(1)}`;
+        
+        // Map center of mass displacement vector natively to pixel coordinates
+        const reticleX = 50 + (physics.x * 20); 
+        const reticleY = 50 + (physics.y * 20);
+        const reticle = document.getElementById('reticle');
+        reticle.style.left = `${reticleX}%`;
+        reticle.style.top = `${reticleY}%`;
 
-st.write("---")
-st.subheader("🏆 Top Lab Operators (Most Moves Survived)")
-lb = load_leaderboard()
-if lb:
-    # Render sleek technical display table
-    st.table(lb)
-else:
-    st.caption("No archived runs found. Calibrate the machine and set the standard.")
+        if (physics.mag > (MAX_IMBALANCE * 0.75)) {
+            document.getElementById('chassis').style.transform = `translate(${(Math.random()-0.5)*4}px, ${(Math.random()-0.5)*4}px)`;
+            reticle.style.background = '#ff3366';
+        } else {
+            document.getElementById('chassis').style.transform = 'none';
+            reticle.style.background = '#00ffcc';
+        }
+
+        document.getElementById('turn-display').innerText = `OPERATOR SHIFT: PLAYER ${currentTurn === 1 ? '1 (CORAL)' : '2 (BLUE)'}`;
+    }
+
+    function openCentrifuge() {
+        document.getElementById('lid').classList.add('lid-open');
+        setTimeout(() => {
+            updateRotorVisuals();
+        }, 600);
+    }
+
+    function calculatePhysics(targetBoard) {
+        let xSum = 0, ySum = 0;
+        for (let i = 0; i < HOLES; i++) {
+            if (targetBoard[i] !== 0) {
+                const angle = (i * (360 / HOLES)) * (Math.PI / 180);
+                xSum += Math.cos(angle);
+                ySum += Math.sin(angle);
+            }
+        }
+        return { mag: Math.sqrt(xSum*xSum + ySum*ySum), x: xSum, y: ySum };
+    }
+
+    function handleSlotClick(index) {
+        if (!gameActive || currentTurn === 2 && gameMode === "AI") return;
+
+        const clickedSlotDOM = document.querySelector(`[data-index='${index}']`);
+
+        if (selectedSlot === null) {
+            if (board[index] === currentTurn) {
+                selectedSlot = index;
+                clickedSlotDOM.classList.add('selected');
+            }
+        } else {
+            if (selectedSlot === index) {
+                clickedSlotDOM.classList.remove('selected');
+                selectedSlot = null;
+                return;
+            }
+
+            if (board[index] === 0) {
+                // Execute spatial translation
+                const sourceSlotDOM = document.querySelector(`[data-index='${selectedSlot}']`);
+                sourceSlotDOM.classList.remove('selected');
+                
+                board[index] = currentTurn;
+                board[selectedSlot] = 0;
+                
+                selectedSlot = null;
+                survivalMoves++;
+                
+                if (evaluateSystemState()) {
+                    currentTurn = 3 - currentTurn;
+                    updateRotorVisuals();
+                    
+                    if (gameMode === "AI" && gameActive) {
+                        setTimeout(executeAIBrain, 800);
+                    }
+                }
+            }
+        }
+    }
+
+    function getValidMoves(targetBoard, player) {
+        let moves = [];
+        for (let s = 0; s < HOLES; s++) {
+            if (targetBoard[s] === player) {
+                for (let e = 0; e < HOLES; e++) {
+                    if (targetBoard[e] === 0) {
+                        let temp = {...targetBoard};
+                        temp[s] = 0;
+                        temp[e] = player;
+                        if (calculatePhysics(temp).mag <= MAX_IMBALANCE) {
+                            moves.push({from: s, to: e});
+                        }
+                    }
+                }
+            }
+        }
+        return moves;
+    }
+
+    function executeAIBrain() {
+        const legalMoves = getValidMoves(board, 2);
+        
+        if (legalMoves.length === 0) {
+            triggerGameOver("♟️ CONTRTAINMENT CHECKMATE", "AI has no safe trajectories remaining. YOU WIN!");
+            return;
+        }
+
+        // 1-Step Predictive Trajectory Lookahead Minimax Optimization
+        let targetedMove = null;
+        let minimumHumanRoutes = 999;
+        let optimalStability = 999;
+
+        legalMoves.forEach(move => {
+            let simBoard = {...board};
+            simBoard[move.from] = 0;
+            simBoard[move.to] = 2;
+
+            let humanResponses = getValidMoves(simBoard, 1).length;
+            let currentImbalance = calculatePhysics(simBoard).mag;
+
+            if (humanResponses < minimumHumanRoutes) {
+                minimumHumanRoutes = humanResponses;
+                optimalStability = currentImbalance;
+                targetedMove = move;
+            } else if (humanResponses === minimumHumanRoutes) {
+                if (currentImbalance < optimalStability) {
+                    optimalStability = currentImbalance;
+                    targetedMove = move;
+                }
+            }
+        });
+
+        if (!targetedMove) targetedMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+
+        // Commit AI trajectory modifications
+        board[targetedMove.from] = 0;
+        board[targetedMove.to] = 2;
+        
+        if (evaluateSystemState()) {
+            currentTurn = 1;
+            updateRotorVisuals();
+        }
+    }
+
+    function evaluateSystemState() {
+        const physics = calculatePhysics(board);
+        
+        if (physics.mag > MAX_IMBALANCE) {
+            triggerGameOver("💥 ROTOR EXPLOSION", `System exceeded safe limit. Player ${currentTurn === 1 ? '2' : '1'} wins.`);
+            return false;
+        }
+        if (physics.mag < 0.01) {
+            triggerGameOver("⚖️ ISOTROPIC CONTAINMENT", `Player ${currentTurn === 1 ? '1' : '2'} achieved total equilibrium and won instantly!`);
+            return false;
+        }
+        
+        const nextPlayer = 3 - currentTurn;
+        if (getValidMoves(board, nextPlayer).length === 0) {
+            triggerGameOver("♟️ ROTATIONAL CHECKMATE", `Player ${nextPlayer === 1 ? '1' : '2'} has no safe moves remaining. Player ${currentTurn === 1 ? '1' : '2'} wins.`);
+            return false;
+        }
+        return true;
+    }
+
+    function triggerGameOver(title, subtitle) {
+        gameActive = false;
+        document.getElementById('end-title').innerText = title;
+        document.getElementById('end-subtitle').innerText = subtitle;
+        document.getElementById('end-screen').style.display = 'flex';
+        
+        if (gameMode === "AI" && currentTurn === 2) {
+            document.getElementById('score-section').style.display = 'block';
+        } else {
+            document.getElementById('restart-btn').style.display = 'block';
+        }
+    }
+
+    function commitScoreData() {
+        const initials = document.getElementById('initials').value || "XYZ";
+        // Query param bridge redirection back to Streamlit engine filesystem
+        window.parent.location.search = `?submit_score=true&name=${initials}&score=${survivalMoves}`;
+    }
+</script>
+</body>
+</html>
+"""
+
+# Render the self-contained arcade application viewport cleanly inside Streamlit
+st.components.v1.html(game_html, height=670, scrolling=False)
