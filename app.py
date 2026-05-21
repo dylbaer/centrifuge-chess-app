@@ -6,7 +6,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Hide native Streamlit margins and bars to maximize the arcade cabinet feel
+# Enforce clean formatting by removing native Streamlit borders, paddings, and menus
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -18,7 +18,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SELF-CONTAINED ARCADE ENGINE (HTML5 / CANVAS / LOCAL STORAGE) ---
+# --- BULLETPROOF ARCADE EMBED (HTML5 / SELF-CONTAINED CANVAS PIPELINE) ---
 game_html = """
 <!DOCTYPE html>
 <html>
@@ -27,7 +27,7 @@ game_html = """
     <title>Centrifuge Chess</title>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #04060a; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        canvas { background: #080c14; box-shadow: 0 0 40px rgba(0, 255, 204, 0.1); border: 2px solid #1e293b; max-width: 100%; max-height: 100%; }
+        canvas { background: #070b12; box-shadow: 0 0 40px rgba(0, 255, 170, 0.15); border: 2px solid #1e293b; max-width: 100%; max-height: 100%; }
     </style>
 </head>
 <body>
@@ -35,11 +35,13 @@ game_html = """
 <canvas id="gameCanvas" width="1000" height="700"></canvas>
 
 <script>
-window.onload = function() {
+// Scoped IIFE configuration pattern to execute instantly without timing delays
+(function() {
     const canvas = document.getElementById('gameCanvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // ENGINE APPLICATION STATES
+    // ENGINE CORE APPLICATION STATES
     const STATE_HOME = 0;
     const STATE_LAUNCH = 1;
     const STATE_GAME = 2;
@@ -47,16 +49,16 @@ window.onload = function() {
     const STATE_GAMEOVER = 4;
     let gameState = STATE_HOME;
 
-    // GAMEPLAY SETTINGS
+    // PHYSICS CONFIGURATION
     const HOLES = 24;
     const MAX_IMBALANCE = 2.2;
     const ROTOR_RADIUS = 145;
     const CENTRIFUGE_CENTER = { x: 500, y: 350 };
 
-    // DYNAMIC VARIABLES
+    // GAME STATE TRACKING DATA
     let board = {};
     let gameMode = "1v1"; 
-    let currentTurn = 1;  // 1 = Coral (Player 1), 2 = Blue (Player 2 / AI)
+    let currentTurn = 1;  // 1 = Coral Team, 2 = Blue Team / AI Brain
     let selectedSlot = null;
     let hoverSlot = null;
     let scoreCycles = 0;
@@ -70,32 +72,35 @@ window.onload = function() {
     let screenShake = { x: 0, y: 0, intensity: 0 };
     let particles = [];
     let backgroundBubbles = [];
+    let runtimeMemoryLeaderboard = [
+        {name: "DR_R", score: 14},
+        {name: "LAB", score: 9},
+        {name: "AMP", score: 5}
+    ];
 
-    // SEED AMBIENT LAB EQUIPMENT COORDINATES
-    for (let i = 0; i < 20; i++) {
+    // Seed procedural chemistry bubbles
+    for (let i = 0; i < 25; i++) {
         backgroundBubbles.push({
-            x: 750 + Math.random() * 80,
-            y: 500 + Math.random() * 120,
-            r: Math.random() * 3 + 1,
-            speed: Math.random() * 30 + 10,
-            maxHeight: 460 + Math.random() * 40
+            x: 760 + Math.random() * 65,
+            y: 490 + Math.random() * 110,
+            r: Math.random() * 2.5 + 1,
+            speed: Math.random() * 25 + 12,
+            maxHeight: 450 + Math.random() * 30
         });
     }
 
-    // INITIALIZATION RUNTIME
-    animateEngine(0);
+    // Initialize clean database state array map
+    for (let i = 0; i < HOLES; i++) board[i] = 0;
 
-    function initRotorDatabase() {
+    // KICKSTART ANIMATION FRAME PIPELINE IMMEDIATELY
+    requestAnimationFrame(animateEngine);
+
+    // INLINE PROCEDURAL STARTING COMPILER
+    function generateRandomInitialArray() {
         for (let i = 0; i < HOLES; i++) board[i] = 0;
-    }
-
-    // PROCEDURAL RANDOM STARTING GENERATOR
-    function generateRandomArray() {
-        initRotorDatabase();
         let placedCoral = 0;
         let placedBlue = 0;
         
-        // Randomly distribute 6 Coral tubes
         while(placedCoral < 6) {
             let r = Math.floor(Math.random() * HOLES);
             if (board[r] === 0) {
@@ -103,7 +108,6 @@ window.onload = function() {
                 placedCoral++;
             }
         }
-        // Randomly distribute 6 Blue tubes
         while(placedBlue < 6) {
             let r = Math.floor(Math.random() * HOLES);
             if (board[r] === 0) {
@@ -112,14 +116,13 @@ window.onload = function() {
             }
         }
 
-        // Integrity check: Ensure starting layout doesn't crash instantly and has valid legal moves
+        // Validate that generated starting configurations do not trigger instant explosions
         let p = calculatePhysics(board);
         if (p.mag > 1.3 || p.mag < 0.2 || getValidMoves(board, 1).length === 0 || getValidMoves(board, 2).length === 0) {
-            generateRandomArray();
+            generateRandomInitialArray();
         }
     }
 
-    // MAIN CORE RENDER LOOP
     let lastTime = 0;
     function animateEngine(timestamp) {
         let dt = (timestamp - lastTime) / 1000;
@@ -133,46 +136,46 @@ window.onload = function() {
     }
 
     function updateVisualPhysics(dt) {
-        // Volumetric liquid animation math
+        // Update chemical beaker fluid physics animations
         backgroundBubbles.forEach(b => {
             b.y -= b.speed * dt;
             if (b.y < b.maxHeight) {
-                b.y = 600;
-                b.x = 750 + Math.random() * 80;
+                b.y = 590;
+                b.x = 760 + Math.random() * 65;
             }
         });
 
-        // Hydraulic lid open sequencer
+        // Hydraulic lift opening translation updates
         if (gameState === STATE_LAUNCH) {
             launchTimer += dt;
-            lidOffset = easeOutQuad(Math.min(launchTimer / 1.2, 1.0));
+            lidOffset = easeOutQuad(Math.min(launchTimer / 1.1, 1.0));
             if (launchTimer >= 1.3) {
                 gameState = STATE_GAME;
             }
         }
 
-        // Structural vibration simulation
+        // Dynamic chassis screen shake decay processing
         if (screenShake.intensity > 0) {
             screenShake.x = (Math.random() - 0.5) * screenShake.intensity;
             screenShake.y = (Math.random() - 0.5) * screenShake.intensity;
-            screenShake.intensity -= dt * 35;
+            screenShake.intensity -= dt * 32;
         } else {
             screenShake.x = 0;
             screenShake.y = 0;
         }
 
-        // High velocity explosion animation updates
+        // Velocity tracking logic for structural failure shard explosion particles
         if (gameState === STATE_EXPLOSION) {
             particles.forEach((p, idx) => {
                 p.x += p.vx * dt;
                 p.y += p.vy * dt;
-                p.vy += 450 * dt; // Gravity pull
-                p.alpha -= dt * 0.5;
+                p.vy += 420 * dt; 
+                p.alpha -= dt * 0.55;
                 p.rot += p.vRot * dt;
                 if (p.alpha <= 0) particles.splice(idx, 1);
             });
             stateTimer += dt;
-            if (stateTimer > 2.2) {
+            if (stateTimer > 2.0) {
                 gameState = STATE_GAMEOVER;
                 stateTimer = 0;
             }
@@ -185,136 +188,135 @@ window.onload = function() {
         ctx.save();
         ctx.translate(screenShake.x, screenShake.y);
 
-        // ALWAYS RENDER BASE LAYER (The Lab Bench + Stationary Hardware)
-        drawLabBenchBackground();
-        drawCentrifugeMachine();
+        // PERSISTENT STRUCTURAL RENDERS (Background Lab Environment)
+        drawLabEnvironmentBackdrop();
+        drawCentrifugeCoreUnit();
 
         ctx.restore();
 
-        // RENDER INTERACTIVE INTERFACE MODALS OVER TOP RESIDENTS
+        // RUNTIME VIEWPORT SCREEN INTERFACE OVERLAYS
         if (gameState === STATE_HOME) drawHomeScreenOverlay();
         if (gameState === STATE_GAMEOVER) drawGameOverScreenOverlay();
     }
 
-    function drawLabBenchBackground() {
-        // Slate-gray composite workbench counter surface
-        ctx.fillStyle = '#181e29';
+    function drawLabEnvironmentBackdrop() {
+        // Slate workbench platform deck surface
+        ctx.fillStyle = '#141923';
         ctx.fillRect(0, 480, canvas.width, 220);
-        ctx.strokeStyle = '#2d3748';
+        ctx.strokeStyle = '#242e42';
         ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(0, 480); ctx.lineTo(canvas.width, 480); ctx.stroke();
 
-        // DECORATIVE EQUIPMENT 1: Test tube rack on left bench
-        ctx.fillStyle = '#2d3748';
-        ctx.fillRect(80, 450, 100, 45); // Rack base
-        for(let i = 0; i < 4; i++) {
+        // HARDWARE UNIT 1: Left-aligned modular test tube storage array rack
+        ctx.fillStyle = '#242f41';
+        ctx.fillRect(70, 445, 110, 45); 
+        for(let i = 0; i < 5; i++) {
             ctx.fillStyle = i % 2 === 0 ? '#ff3366' : '#00ccff';
-            ctx.fillRect(95 + (i * 22), 400, 12, 50); // Fluid lines
-            ctx.fillStyle = 'rgba(255,255,255,0.2)';
-            ctx.fillRect(95 + (i * 22), 400, 3, 50);  // Specular sheen
+            ctx.fillRect(82 + (i * 20), 395, 10, 50); 
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            ctx.fillRect(82 + (i * 20), 395, 3, 50);  
         }
-        ctx.strokeStyle = '#4a5568';
-        ctx.strokeRect(80, 400, 100, 95);
+        ctx.strokeStyle = '#3b4b66';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(70, 395, 110, 95);
 
-        // DECORATIVE EQUIPMENT 2: Volumetric boiling flask on right bench
-        ctx.fillStyle = '#0f172a';
-        ctx.beginPath(); ctx.arc(790, 560, 45, 0, Math.PI * 2); ctx.fill();
-        ctx.fillRect(778, 450, 24, 70); // Neck
+        // HARDWARE UNIT 2: Procedural boiling flask station with active liquid solutions
+        ctx.fillStyle = '#0a0e17';
+        ctx.beginPath(); ctx.arc(790, 550, 42, 0, Math.PI * 2); ctx.fill();
+        ctx.fillRect(779, 440, 22, 70); 
         
-        // Glowing animated solution chemical
-        ctx.fillStyle = 'rgba(168, 85, 247, 0.4)'; // Radioactive purple
-        ctx.beginPath(); ctx.arc(790, 560, 42, 0, Math.PI); ctx.fill();
-        ctx.fillRect(749, 560, 82, 42);
+        // Fluid solution render block
+        ctx.fillStyle = 'rgba(147, 51, 234, 0.35)'; 
+        ctx.beginPath(); ctx.arc(790, 550, 39, 0, Math.PI); ctx.fill();
+        ctx.fillRect(751, 550, 78, 40);
 
-        // Render ambient bubbles rising inside the boiling flask
-        ctx.fillStyle = '#e9d5ff';
+        // Bubbles ascending
+        ctx.fillStyle = '#f3e8ff';
         backgroundBubbles.forEach(b => {
             ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill();
         });
 
-        // Glass reflection line
-        ctx.strokeStyle = '#718096';
+        // Specular glass contour lens line pathing
+        ctx.strokeStyle = '#5a6982';
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(790, 560, 45, Math.PI * 0.75, Math.PI * 1.25); ctx.stroke();
+        ctx.beginPath(); ctx.arc(790, 550, 42, Math.PI * 0.7, Math.PI * 1.3); ctx.stroke();
 
-        // LAB LOGO TEXT
-        ctx.fillStyle = '#4a5568';
-        ctx.font = '11px monospace';
+        // Technical station details
+        ctx.fillStyle = '#3b4b66';
+        ctx.font = '10px monospace';
         ctx.textAlign = 'left';
-        ctx.fillText("STATION NO. 4 // CORE PHYSICS", 40, 670);
+        ctx.fillText("OPERATIONAL HUB MODULE V-04", 45, 665);
     }
 
-    function drawCentrifugeMachine() {
+    function drawCentrifugeCoreUnit() {
         let cx = CENTRIFUGE_CENTER.x;
         let cy = CENTRIFUGE_CENTER.y;
 
-        // Heavy industrial machine chassis casing block
-        ctx.fillStyle = '#101520';
+        // Main industrial armor casting bulkhead block
+        ctx.fillStyle = '#0f131c';
         ctx.beginPath(); ctx.arc(cx, cy, 235, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = '#3b4252';
+        ctx.strokeStyle = '#2d3748';
         ctx.lineWidth = 6;
         ctx.stroke();
 
-        // Dark vacuum core rotor bay
-        ctx.fillStyle = '#05070c';
+        // Core containment inner dark vacuum bay
+        ctx.fillStyle = '#04060a';
         ctx.beginPath(); ctx.arc(cx, cy, 195, 0, Math.PI*2); ctx.fill();
 
         if (gameState >= STATE_GAME || gameState === STATE_LAUNCH) {
-            // THE INTERNAL ROTOR WHEEL
-            ctx.fillStyle = '#141a24';
+            // THE INTERNAL ROTATIONAL ROTOR WHEEL ASSEMBLY
+            ctx.fillStyle = '#121824';
             ctx.beginPath(); ctx.arc(cx, cy, 172, 0, Math.PI*2); ctx.fill();
 
-            // RED STRUCTURAL MAX DISPLACEMENT BOUNDARY RING
-            ctx.strokeStyle = 'rgba(255, 51, 102, 0.35)';
+            // STABILITY CONSTRAINT BOUNDARY (CRITICAL RED THRESHOLD RING)
+            ctx.strokeStyle = 'rgba(255, 51, 102, 0.32)';
             ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
+            ctx.setLineDash([6, 4]);
             ctx.beginPath(); ctx.arc(cx, cy, MAX_IMBALANCE * 35, 0, Math.PI*2); ctx.stroke();
             ctx.setLineDash([]);
 
-            // DRAW ALL 24 HOLE SLOT ANCHORS
+            // LOOP MAP ALL 24 POSITION NODES
             for (let i = 0; i < HOLES; i++) {
                 let angle = (i * (360 / HOLES)) * (Math.PI / 180);
                 let sx = cx + ROTOR_RADIUS * Math.cos(angle);
                 let sy = cy + ROTOR_RADIUS * Math.sin(angle);
 
-                ctx.fillStyle = '#070a0f';
+                ctx.fillStyle = '#06090e';
                 ctx.beginPath(); ctx.arc(sx, sy, 14, 0, Math.PI*2); ctx.fill();
-                ctx.strokeStyle = (hoverSlot === i) ? '#00ffcc' : '#2e3440';
+                ctx.strokeStyle = (hoverSlot === i) ? '#00ffcc' : '#232d3f';
                 ctx.lineWidth = 2;
                 ctx.stroke();
 
-                // Slot identification tags
-                ctx.fillStyle = '#4c566a';
+                // Slot index label markers
+                ctx.fillStyle = '#4a576d';
                 ctx.font = 'bold 9px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(i, cx + (ROTOR_RADIUS + 23) * Math.cos(angle), cy + (ROTOR_RADIUS + 23) * Math.sin(angle));
 
-                // DRAW DETAILED BULLETPROOF GLASS TEST TUBES
+                // RENDER INDIVIDUAL ARCADE TEST TUBES
                 if (board[i] !== 0) {
                     let isSelected = (selectedSlot === i);
                     drawArcadeTestTube(sx, sy, board[i], isSelected);
                 }
             }
 
-            // VECTOR ENGINE FORCE TELEMETRY GAUGE
+            // DYNAMIC MOMENTUM DISPLACEMENT VECTOR TRACKING HUD GAUGE
             let p = calculatePhysics(board);
             let vx = cx + (p.x * 35);
             let vy = cy + (p.y * 35);
 
-            // Vector center tracking alignment lines
-            ctx.strokeStyle = 'rgba(0, 255, 204, 0.3)';
+            ctx.strokeStyle = 'rgba(0, 255, 170, 0.25)';
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(vx, vy); ctx.stroke();
 
-            // Target vector focal node indicator
             ctx.fillStyle = (p.mag > MAX_IMBALANCE * 0.75) ? '#ff3366' : '#00ffcc';
             ctx.beginPath(); ctx.arc(vx, vy, 6, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            // GHOST VECTOR PREDICTIVE PATH ROUTING TRAJECTORIES
+            // PREDICTIVE GHOST DISPLACEMENT TELEMETRY TRACKER RENDERING ENGINE
             if (selectedSlot !== null && hoverSlot !== null && board[hoverSlot] === 0) {
                 let ghostBoard = {...board};
                 ghostBoard[selectedSlot] = 0;
@@ -324,7 +326,7 @@ window.onload = function() {
                 let gvx = cx + (gp.x * 35);
                 let gvy = cy + (gp.y * 35);
 
-                ctx.strokeStyle = 'rgba(234, 179, 8, 0.5)';
+                ctx.strokeStyle = 'rgba(234, 179, 8, 0.45)';
                 ctx.lineWidth = 1.5;
                 ctx.setLineDash([3, 3]);
                 ctx.beginPath(); ctx.moveTo(vx, vy); ctx.lineTo(gvx, gvy); ctx.stroke();
@@ -334,23 +336,24 @@ window.onload = function() {
                 ctx.setLineDash([]);
             }
 
-            // INTERACTIVE DISPLAY GRAPHICAL HUD OVERLAYS
+            // INTERACTIVE OPERATING READOUT PANELS
             ctx.fillStyle = '#fff';
             ctx.font = '13px monospace';
             ctx.textAlign = 'left';
-            ctx.fillText(`IMBALANCE G-FORCE: ${p.mag.toFixed(3)} / ${MAX_IMBALANCE.toFixed(1)} G`, 40, 45);
-            ctx.fillText(`OPERATOR TURN: PLAYER ${currentTurn === 1 ? '1 [CORAL]' : '2 [BLUE]'}`, 40, 65);
-            ctx.fillText(`CYCLES MAINTAINED: ${scoreCycles}`, 40, 85);
+            ctx.textBaseline = 'normal';
+            ctx.fillText(`DISPLACEMENT FORCE: ${p.mag.toFixed(3)} / ${MAX_IMBALANCE.toFixed(1)} G`, 45, 45);
+            ctx.fillText(`OPERATOR TURN: PLAYER ${currentTurn === 1 ? '1 [CORAL]' : '2 [BLUE]'}`, 45, 65);
+            ctx.fillText(`STABLE CYCLES: ${scoreCycles}`, 45, 85);
 
-            // ARCADE DESIGN HEALTH/STABILITY STATUS BAR
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(40, 100, 200, 10);
+            // STABILITY HEALTH BAR
+            ctx.fillStyle = '#1a2333';
+            ctx.fillRect(45, 100, 180, 8);
             let fillPercent = Math.min(p.mag / MAX_IMBALANCE, 1.0);
             ctx.fillStyle = (fillPercent > 0.75) ? '#ff3366' : '#00ffcc';
-            ctx.fillRect(40, 100, 200 * fillPercent, 10);
+            ctx.fillRect(45, 100, 180 * fillPercent, 8);
         }
 
-        // CATASTROPHIC VECTOR EXPLOSION FRAGMENT SPARK TRAILS
+        // EXPLOSION VELOCITY DISPLACEMENT FX RENDERS
         if (gameState === STATE_EXPLOSION) {
             particles.forEach(p => {
                 ctx.save();
@@ -364,29 +367,26 @@ window.onload = function() {
             ctx.globalAlpha = 1.0;
         }
 
-        // PNEUMATIC SECURITY SHUTTER LID HATCH ASSEMBLY
+        // HEAVY SHIELDING ENAMEL MECHANICAL SEAL COVER LIDS
         if (gameState === STATE_HOME || gameState === STATE_LAUNCH) {
             let ly = cy - (lidOffset * 650);
             
-            // Clean white/gray enamel mechanical shielding capsule
             ctx.fillStyle = '#e2e8f0';
-            ctx.beginPath(); ctx.arc(cx, ly, 230, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, ly, 226, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Dark circular acrylic tinted viewpoint viewport window glass
-            ctx.fillStyle = '#0f172a';
+            ctx.fillStyle = '#0a0f18';
             ctx.beginPath(); ctx.arc(cx, ly, 75, 0, Math.PI*2); ctx.fill();
-            ctx.strokeStyle = '#94a3b8';
-            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 4;
             ctx.stroke();
 
-            // Neon diagnostic readout label text
-            ctx.fillStyle = (Math.floor(Date.now() / 500) % 2 === 0) ? '#00ffcc' : '#00aa88';
+            ctx.fillStyle = (Math.floor(Date.now() / 400) % 2 === 0) ? '#00ffcc' : '#00bb99';
             ctx.font = 'bold 11px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText("READY TO OPEN", cx, ly + 4);
+            ctx.fillText("READY PROTOCOL", cx, ly + 4);
         }
     }
 
@@ -395,20 +395,20 @@ window.onload = function() {
         ctx.translate(x, y);
         
         if (isSelected) {
-            ctx.scale(1.25, 1.25);
+            ctx.scale(1.2, 1.2);
             ctx.strokeStyle = '#00ffcc';
             ctx.lineWidth = 2;
             ctx.strokeRect(-11, -21, 22, 42);
         }
 
-        // Clear high density resin casing wall outlines
+        // Solid glass resin tracking tube frames
         ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
         ctx.beginPath();
         ctx.moveTo(-7, -15); ctx.lineTo(7, -15); ctx.lineTo(7, 8);
         ctx.arc(0, 8, 7, 0, Math.PI, false); ctx.lineTo(-7, -15);
         ctx.fill();
 
-        // Layered internal neon chemical fluids volume blocks
+        // Liquid volume fillings
         let fillGradient = ctx.createLinearGradient(-7, 0, 7, 0);
         if (player === 1) {
             fillGradient.addColorStop(0, '#ff3366'); fillGradient.addColorStop(1, '#a30022');
@@ -421,11 +421,11 @@ window.onload = function() {
         ctx.arc(0, 8, 6, 0, Math.PI, false); ctx.lineTo(-6, -3);
         ctx.fill();
 
-        // Specular ambient lens glare strip
+        // Sheen highlight
         ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-        ctx.fillRect(-4, -13, 2, 22);
+        ctx.fillRect(-4, -13, 2, 21);
 
-        // Heavy locking plastic friction safety tops
+        // Top sealing caps
         ctx.fillStyle = (player === 1) ? '#ff8aa8' : '#b3f0ff';
         ctx.fillRect(-8, -19, 16, 5);
 
@@ -433,38 +433,36 @@ window.onload = function() {
     }
 
     function drawHomeScreenOverlay() {
-        // Subtle ambient screen tint shading
-        ctx.fillStyle = 'rgba(4, 6, 10, 0.5)';
+        ctx.fillStyle = 'rgba(4, 6, 10, 0.45)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // High contrast central operations dashboard console
+        // Central Operations Console Terminal Block
         let menu = { x: 50, y: 120, w: 320, h: 320 };
-        ctx.fillStyle = '#0b101d';
+        ctx.fillStyle = '#0a0f1d';
         ctx.fillRect(menu.x, menu.y, menu.w, menu.h);
-        ctx.strokeStyle = '#1e293b';
+        ctx.strokeStyle = '#23314f';
         ctx.lineWidth = 2;
         ctx.strokeRect(menu.x, menu.y, menu.w, menu.h);
 
-        // HEADER LABELS
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 26px monospace';
+        ctx.font = 'bold 24px monospace';
         ctx.textAlign = 'left';
         ctx.fillText("CENTRIFUGE CHESS", menu.x + 20, menu.y + 45);
         
-        ctx.fillStyle = '#64748b';
-        ctx.font = '11px monospace';
-        ctx.fillText("CRASH CODE INITIATIVE PROTOCOL", menu.x + 20, menu.y + 65);
+        ctx.fillStyle = '#566885';
+        ctx.font = '10px monospace';
+        ctx.fillText("ANGULAR TORQUE TACTICAL SIMULATOR", menu.x + 20, menu.y + 65);
 
-        // BUTTON INTERFACES RENDER CALLS
-        drawArcadeMenuButton(menu.x + 20, menu.y + 100, 280, 42, "▶ 1 VS 1 LOCAL PROMPT");
-        drawArcadeMenuButton(menu.x + 20, menu.y + 155, 280, 42, "▶ SOLO WORKSTATION (VS AI)");
+        // CORE SYSTEM LAUNCH MENU BUTTON LAYERS
+        drawArcadeMenuButton(menu.x + 20, menu.y + 100, 280, 42, "▶ INITIALIZE 1 VS 1 MODE");
+        drawArcadeMenuButton(menu.x + 20, menu.y + 155, 280, 42, "▶ INITIALIZE VS COMPUTER");
         
-        // REFORMATTED COMPACT HIGH SCORE BILLBOARD READOUTS
-        ctx.fillStyle = '#94a3b8';
+        // INTERNALLY MANAGED COMPACT ARCHIVE SYSTEM BOARD
+        ctx.fillStyle = '#8f9fb8';
         ctx.font = 'bold 11px monospace';
-        ctx.fillText("--- LAB HIGH RECORD LOG ---", menu.x + 20, menu.y + 230);
+        ctx.fillText("--- LAB TELEMETRY ARCHIVE ---", menu.x + 20, menu.y + 230);
 
-        let records = fetchLocalLeaderboardRecords();
+        let records = fetchSanitizedLeaderboardRecords();
         ctx.font = '12px monospace';
         if (records.length > 0) {
             records.forEach((rec, idx) => {
@@ -476,7 +474,7 @@ window.onload = function() {
                 ctx.textAlign = 'left';
             });
         } else {
-            ctx.fillStyle = '#475569';
+            ctx.fillStyle = '#4a576d';
             ctx.fillText("No current telemetry data logged.", menu.x + 20, menu.y + 255);
         }
     }
@@ -484,46 +482,45 @@ window.onload = function() {
     function drawArcadeMenuButton(x, y, w, h, text) {
         let isHovered = (mx >= x && mx <= x + w && my >= y && my <= y + h);
 
-        ctx.fillStyle = isHovered ? '#16253b' : '#070c14';
+        ctx.fillStyle = isHovered ? '#14253d' : '#060a12';
         ctx.fillRect(x, y, w, h);
-        ctx.strokeStyle = isHovered ? '#00ffcc' : '#334155';
+        ctx.strokeStyle = isHovered ? '#00ffcc' : '#23314f';
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x, y, w, h);
 
-        ctx.fillStyle = isHovered ? '#00ffcc' : '#94a3b8';
+        ctx.fillStyle = isHovered ? '#00ffcc' : '#8f9fb8';
         ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(text, x + w/2, y + h/2);
-        ctx.textBaseline = 'normal'; // Reset baseline transformations
+        ctx.textBaseline = 'normal'; 
     }
 
     function drawGameOverScreenOverlay() {
-        ctx.fillStyle = 'rgba(4, 6, 10, 0.92)';
+        ctx.fillStyle = 'rgba(4, 6, 10, 0.93)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // BIG RED VIBRANT RETRO TERMINAL TEXT
         ctx.fillStyle = '#ff3366';
-        ctx.font = 'bold 46px monospace';
+        ctx.font = 'bold 44px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText("🚨 CORE DISRUPTION EXPLOSION 🚨", 500, 230);
+        ctx.fillText("🚨 CORE DISRUPTION BLOWOUT 🚨", 500, 230);
 
-        ctx.fillStyle = '#94a3b8';
-        ctx.font = '15px monospace';
-        ctx.fillText(`Rotor balanced yield thresholds shattered. Core safety parameters violated.`, 500, 280);
+        ctx.fillStyle = '#8f9fb8';
+        ctx.font = '14px monospace';
+        ctx.fillText(`Rotor mechanical stability compromised. Containment yield failed.`, 500, 280);
         
         ctx.fillStyle = '#00ffcc';
         ctx.font = 'bold 18px monospace';
-        ctx.fillText(`STABLE RUNTIME MAINTAINED: ${scoreCycles} COMPLETED CYCLES`, 500, 320);
+        ctx.fillText(`STABLE OPERATION LOGGED: ${scoreCycles} COMPLETED CYCLES`, 500, 320);
 
         if (gameMode === "AI") {
             ctx.fillStyle = '#fff';
             ctx.font = '13px monospace';
-            ctx.fillText("ARCHIVE WORKSTATION OPERATOR INITIALS (3 CHR):", 500, 375);
+            ctx.fillText("ENTER OPERATOR ID FOR TELEMETRY SYSTEM LOG (3 CHR):", 500, 375);
             
-            ctx.fillStyle = '#0b101d';
+            ctx.fillStyle = '#070b14';
             ctx.fillRect(440, 395, 120, 36);
-            ctx.strokeStyle = '#334155';
+            ctx.strokeStyle = '#23314f';
             ctx.strokeRect(440, 395, 120, 36);
 
             ctx.fillStyle = '#00ffcc';
@@ -532,13 +529,13 @@ window.onload = function() {
             
             ctx.fillStyle = '#4a5568';
             ctx.font = '10px monospace';
-            ctx.fillText("[PRESS THE ENTER KEY TO COMMIT METRICS]", 500, 455);
+            ctx.fillText("[PRESS ENTER KEY TO SAVE TO CACHE]", 500, 455);
         } else {
-            drawArcadeMenuButton(380, 380, 240, 45, "RETURN TO ACCESS TERMINAL");
+            drawArcadeMenuButton(380, 380, 240, 45, "RETURN TO ACCESS CONSOLE");
         }
     }
 
-    // TARGETED INTERACTIVE COORDINATE TRACKERS
+    // COORD CAPTURES
     window.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         mx = (e.clientX - rect.left) * (canvas.width / rect.width);
@@ -563,10 +560,9 @@ window.onload = function() {
 
     window.addEventListener('click', () => {
         if (gameState === STATE_HOME) {
-            // Context click intersections
             if (mx >= 70 && mx <= 350) {
-                if (my >= 220 && my <= 262) { gameMode = "1v1"; triggerCoreLaunchSequence(); }
-                if (my >= 275 && my <= 317) { gameMode = "AI"; triggerCoreLaunchSequence(); }
+                if (my >= 220 && my <= 262) { gameMode = "1v1"; triggerLaunchSequence(); }
+                if (my >= 275 && my <= 317) { gameMode = "AI"; triggerLaunchSequence(); }
             }
         }
         else if (gameState === STATE_GAME) {
@@ -586,7 +582,7 @@ window.onload = function() {
     window.addEventListener('keydown', (e) => {
         if (gameState === STATE_GAMEOVER && gameMode === "AI") {
             if (e.key === "Enter" && nameInputBuffer.length > 0) {
-                commitLocalLeaderboardScore(nameInputBuffer, scoreCycles);
+                commitSanitizedScoreToLeaderboard(nameInputBuffer, scoreCycles);
                 gameState = STATE_HOME;
                 selectedSlot = null;
                 hoverSlot = null;
@@ -598,8 +594,8 @@ window.onload = function() {
         }
     });
 
-    function triggerCoreLaunchSequence() {
-        generateRandomArray();
+    function triggerLaunchSequence() {
+        generateRandomInitialArray();
         currentTurn = 1;
         scoreCycles = 0;
         launchTimer = 0;
@@ -622,7 +618,6 @@ window.onload = function() {
             }
 
             if (board[index] === 0) {
-                // Execute layout change transformations
                 board[index] = currentTurn;
                 board[selectedSlot] = 0;
                 selectedSlot = null;
@@ -686,7 +681,6 @@ window.onload = function() {
             let humanOptions = getValidMoves(sim, 1).length;
             let currentImbalance = calculatePhysics(sim).mag;
 
-            // Strategy: Starve human player options or secure highest rotor safety threshold balances
             if (humanOptions < minimumHumanAvenues) {
                 minimumHumanAvenues = humanOptions;
                 bestImbalance = currentImbalance;
@@ -733,7 +727,6 @@ window.onload = function() {
         screenShake.intensity = 50;
         particles = [];
 
-        // Spawn vector shard cloud
         for (let i = 0; i < 180; i++) {
             let angle = Math.random() * Math.PI * 2;
             let speed = Math.random() * 340 + 90;
@@ -741,11 +734,11 @@ window.onload = function() {
             if (Math.random() < 0.15) clr = '#ffffff';
 
             particles.push({
-                x: CENTRIFUGE_CENTER.x + (Math.random()-0.5)*80,
-                y: CENTRIFUGE_CENTER.y + (Math.random()-0.5)*80,
+                x: CENTRIFUGE_CENTER.x + (Math.random()-0.5)*70,
+                y: CENTRIFUGE_CENTER.y + (Math.random()-0.5)*70,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed - 60,
-                size: Math.random() * 5 + 3,
+                size: Math.random() * 5 + 2,
                 color: clr,
                 alpha: 1.0,
                 rot: Math.random() * 6,
@@ -754,30 +747,40 @@ window.onload = function() {
         }
     }
 
-    // BROWSER LOCAL STORAGE API CONTROLLERS (CORS SAFE / PERSISTENT)
-    function fetchLocalLeaderboardRecords() {
-        let raw = localStorage.getItem('centrifuge_scores');
-        if (raw) {
-            try { return JSON.parse(raw).sort((a,b) => b.score - a.score).slice(0, 3); } catch(e) { return []; }
+    // SHIELDED STORAGE HANDLERS (TRY-CATCH PROTECTED AGAINST SANDBOX TERMINATIONS)
+    function fetchSanitizedLeaderboardRecords() {
+        try {
+            let raw = localStorage.getItem('centrifuge_chess_scores');
+            if (raw) {
+                return JSON.parse(raw).sort((a,b) => b.score - a.score).slice(0, 3);
+            }
+        } catch(e) {
+            console.warn("Iframe local storage sandboxed. Falling back to runtime tracking state memory storage layout arrays.");
         }
-        return [];
+        return runtimeMemoryLeaderboard.sort((a,b) => b.score - a.score).slice(0, 3);
     }
 
-    function commitLocalLeaderboardScore(name, score) {
-        let current = fetchLocalLeaderboardRecords();
-        current.push({name: name.substring(0,3).upperCase || name, score: score});
+    function commitSanitizedScoreToLeaderboard(name, score) {
+        let cleanName = (name || "AAA").substring(0,3).toUpperCase();
+        let current = fetchSanitizedLeaderboardRecords();
+        current.push({name: cleanName, score: score});
         let sorted = current.sort((a,b) => b.score - a.score).slice(0, 3);
-        localStorage.setItem('centrifuge_scores', JSON.stringify(sorted));
+        
+        try {
+            localStorage.setItem('centrifuge_chess_scores', JSON.stringify(sorted));
+        } catch(e) {
+            runtimeMemoryLeaderboard = sorted;
+        }
     }
 
     function easeOutQuad(x) {
         return 1 - (1 - x) * (1 - x);
     }
-};
+})();
 </script>
 </body>
 </html>
 """
 
-# Render the self-contained arcade cabinet cleanly inside Streamlit
+# Render the self-contained arcade workspace window cleanly inside Streamlit
 st.components.v1.html(game_html, height=710, scrolling=False)
